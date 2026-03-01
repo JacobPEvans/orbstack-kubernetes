@@ -55,7 +55,7 @@ spec:
                 # The .crbl is a tar.gz containing default/inputs.yml and default/pipelines/
                 # We extract these into Edge's local config dir (cribl pack install requires
                 # the API server which isn't running during CRIBL_BEFORE_START_CMD).
-                PACK_URL="https://github.com/JacobPEvans/cc-edge-claude-code-otel/releases/latest/download/cc-edge-claude-code-otel.crbl"
+                PACK_URL="https://github.com/JacobPEvans/cc-edge-claude-code-otel/releases/download/v2.0.0/cc-edge-claude-code-otel.crbl"
                 PACK_FILE="/tmp/cc-edge-claude-code-otel.crbl"
                 EDGE_DIR="${CRIBL_VOLUME_DIR}/local/edge"
                 mkdir -p "${EDGE_DIR}"
