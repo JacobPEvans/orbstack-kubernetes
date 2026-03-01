@@ -2,14 +2,15 @@
 
 ## Overview
 
-Tests are organized into four tiers, each building on the previous:
+Tests are organized into five tiers, each building on the previous:
 
 | Tier | Command | What It Verifies |
 |------|---------|--------------------|
+| 0 — Unit | `make test-unit` | Pure logic unit tests and manifest security checks (no cluster required) |
 | 1 — Smoke | `make test-smoke` | Cluster reachable, all 5 pods Running, health endpoints respond |
 | 2 — Pipeline | `make test-pipeline` | OTLP gRPC/HTTP send completes without error (A1) |
 | 3 — Forwarding | `make test-forwarding` | Data flows through each pipeline leg, including Splunk receipt |
-| 4 — Unit | `make test-unit` | Pure logic unit tests (no cluster required) |
+| 4 — Sourcetypes | `make test-sourcetypes` | Per-sourcetype sentinel E2E and config validation |
 
 Run all tiers: `make test-all` (or individually with the commands above).
 
@@ -82,10 +83,11 @@ Shared utility functions:
 
 ### `tests/conftest.py`
 
-Shared fixtures:
+Shared fixtures and helpers:
 
 - `cluster_ready`: Session fixture, skips all tests if OrbStack unreachable
 - `splunk_client`: Returns `(mgmt_url, admin_password)` from `splunk-hec-config` secret; skips if keys absent
+- `kubectl_exec_no_fail(*args)`: Run `kubectl exec` returning `(stdout, return_code)` without raising on failure
 
 ## Running Specific Tests
 

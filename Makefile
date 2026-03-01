@@ -1,4 +1,4 @@
-.PHONY: help validate validate-schemas generate-overlay deploy deploy-doppler status logs build-images run-claude run-gemini test test-e2e test-smoke test-pipeline test-forwarding test-setup full-power power-save power-status clean
+.PHONY: help validate validate-schemas generate-overlay deploy deploy-doppler status logs build-images run-claude run-gemini test test-e2e test-smoke test-pipeline test-forwarding test-sourcetypes test-unit test-all test-setup full-power power-save power-status clean
 
 CONTEXT ?= orbstack
 NAMESPACE := monitoring
@@ -54,9 +54,21 @@ test-forwarding: ## Run forwarding tests (Cribl pipeline)
 	@$(PYTEST_CHECK)
 	.venv/bin/pytest tests/test_forwarding.py -v
 
-test-e2e: ## Run full test suite in order (smoke → pipeline → forwarding)
+test-sourcetypes: ## Run per-sourcetype E2E tests
 	@$(PYTEST_CHECK)
-	.venv/bin/pytest tests/test_smoke.py tests/test_pipeline.py tests/test_forwarding.py -v --tb=short
+	.venv/bin/pytest tests/test_sourcetypes.py -v
+
+test-unit: ## Run unit tests (no cluster required)
+	@$(PYTEST_CHECK)
+	.venv/bin/pytest tests/test_unit.py -v
+
+test-e2e: ## Run full test suite in order (smoke → pipeline → forwarding → sourcetypes)
+	@$(PYTEST_CHECK)
+	.venv/bin/pytest tests/test_smoke.py tests/test_pipeline.py tests/test_forwarding.py tests/test_sourcetypes.py -v --tb=short
+
+test-all: ## Run all tests in order: unit → smoke → pipeline → forwarding → sourcetypes
+	@$(PYTEST_CHECK)
+	.venv/bin/pytest tests/test_unit.py tests/test_smoke.py tests/test_pipeline.py tests/test_forwarding.py tests/test_sourcetypes.py -v --tb=short
 
 test-setup: ## Install test dependencies in virtual environment
 	python3 -m venv .venv

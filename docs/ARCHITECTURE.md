@@ -57,3 +57,13 @@ flowchart LR
 | H2 | heartbeat-splunk → Splunk HEC health → healthchecks.io | `test_cronjob_exists[heartbeat-splunk]`,<br>`test_network_policy_exists[allow-heartbeat-splunk-egress]` | test_smoke.py |
 | H3 | heartbeat-edge → Edge health → healthchecks.io | `test_cronjob_exists[heartbeat-edge]`,<br>`test_network_policy_exists[allow-heartbeat-edge-egress]` | test_smoke.py |
 | H4 | heartbeat-otel → OTEL health → healthchecks.io | `test_cronjob_exists[heartbeat-otel]`,<br>`test_network_policy_exists[allow-heartbeat-otel-egress]` | test_smoke.py |
+| ST1 | Sourcetype: session | `test_session_sourcetype` ✓Splunk | test_sourcetypes.py |
+| ST2 | Sourcetype: subagent | `test_subagent_sourcetype` ✓Splunk | test_sourcetypes.py |
+| ST3 | Sourcetype: logs | `test_logs_sourcetype` ✓Splunk | test_sourcetypes.py |
+| ST4 | Sourcetype: plans | `test_plans_sourcetype` ✓Splunk | test_sourcetypes.py |
+| ST5 | Sourcetype: tasks | `test_tasks_sourcetype` ✓Splunk | test_sourcetypes.py |
+| ST6 | Sourcetype: teams | `test_teams_sourcetype` ✓Splunk | test_sourcetypes.py |
+| ST7 | Sourcetype: history (query-only) | `test_history_sourcetype_exists` | test_sourcetypes.py |
+| ST8 | Sourcetype: stats (query-only) | `test_stats_sourcetype_exists` | test_sourcetypes.py |
+| ST9 | Sourcetype: plugins (query-only) | `test_plugins_sourcetype_exists` | test_sourcetypes.py |
+| SC1 | Security: no sensitive paths | `test_no_forbidden_patterns_in_edge_inputs_configmap`,<br>`test_forbidden_pattern_not_in_pack_inputs` | test_unit.py |

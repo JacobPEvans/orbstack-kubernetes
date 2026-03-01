@@ -12,7 +12,6 @@ data:
         token: "__SPLUNK_HEC_TOKEN__"
         index: claude
         source: cribl-stream
-        sourcetype: "claude:code:session"
         rejectUnauthorized: false
         compress: true
         concurrency: 5
@@ -58,7 +57,7 @@ data:
             - name: index
               value: "'claude'"
             - name: sourcetype
-              value: "'claude:code:session'"
+              value: "(source||'').includes('/subagents/') ? 'claude:code:subagent' : (datatype||'claude-code-unknown').replace('claude-code-','claude:code:')"
             - name: source
               value: "source || 'cribl-stream'"
   pipelines-route.yml: |

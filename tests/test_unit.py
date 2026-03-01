@@ -6,8 +6,10 @@ without any Kubernetes infrastructure.
 
 import json
 import urllib.error
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
+import pytest
 from helpers import find_flowing_stats, parse_otel_error_lines, query_splunk, url_present_in_outputs_yaml
 
 
@@ -140,3 +142,65 @@ class TestUrlPresentInOutputsYaml:
         # Dots in IP would match any char without re.escape — ensure they don't
         yaml = "url: https://192X168Y0Z200:8088/services/collector\n"
         assert url_present_in_outputs_yaml(url, yaml) is False
+
+
+class TestSecurityExclusions:
+    """Verify sensitive paths are not monitored by any Edge input."""
+
+    FORBIDDEN_PATTERNS = [
+        ".credentials.json",
+        "settings.json",
+        "settings.local.json",
+        "security_warnings_state_",
+        "debug/",
+        "telemetry/",
+        "paste-cache/",
+        "file-history/",
+        "backups/",
+        "cache/",
+    ]
+
+    # Absolute path to the Edge standalone ConfigMap
+    _CONFIGMAP_PATH = Path(__file__).parent.parent / "k8s/base/cribl-edge-standalone/configmap-cribl-config.yaml"
+
+    # Path to the pack inputs file in the sibling repo (adapts to any user's home directory)
+    _PACK_INPUTS_PATH = Path.home() / "git/cc-edge-claude-code-otel/default/inputs.yml"
+
+    def test_configmap_has_no_input_configurations(self):
+        """Edge ConfigMap must NOT contain input configurations.
+
+        Inputs are managed by the external pack (cc-edge-claude-code-otel),
+        installed at pod startup. The ConfigMap should only contain outputs.
+        """
+        configmap_text = self._CONFIGMAP_PATH.read_text()
+
+        # The ConfigMap should not contain any inputs.yml data key
+        assert "inputs.yml" not in configmap_text, (
+            "Edge ConfigMap should not contain inputs.yml — "
+            "inputs are managed by the external pack installed at pod startup"
+        )
+
+        # Verify no input-style path/filenames directives exist
+        input_lines = [
+            line.strip()
+            for line in configmap_text.splitlines()
+            if line.strip().startswith("path:") or line.strip().startswith("filenames:")
+        ]
+        assert input_lines == [], (
+            f"Edge ConfigMap should not contain path:/filenames: directives — found: {input_lines}"
+        )
+
+    @pytest.mark.parametrize("pattern", FORBIDDEN_PATTERNS)
+    def test_forbidden_pattern_not_in_pack_inputs(self, pattern):
+        """Pack inputs.yml must not reference sensitive patterns."""
+        if not self._PACK_INPUTS_PATH.exists():
+            pytest.skip(f"Pack inputs.yml not found at {self._PACK_INPUTS_PATH}")
+
+        pack_inputs_text = self._PACK_INPUTS_PATH.read_text()
+
+        # Check every line that sets path or filenames values
+        for line in pack_inputs_text.splitlines():
+            stripped = line.strip()
+            if not (stripped.startswith("path:") or stripped.startswith("filenames:")):
+                continue
+            assert pattern not in stripped, f"Forbidden pattern '{pattern}' found in pack inputs.yml line: {stripped}"

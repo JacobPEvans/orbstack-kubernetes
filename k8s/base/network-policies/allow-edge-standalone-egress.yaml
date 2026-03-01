@@ -1,5 +1,6 @@
 ---
-# Allow Cribl Edge Standalone to send events to Cribl Stream Standalone via HEC.
+# Allow Cribl Edge Standalone to send events to Cribl Stream Standalone via HEC
+# and to download pack releases from GitHub over HTTPS at startup.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -18,4 +19,7 @@ spec:
               app: cribl-stream-standalone
       ports:
         - port: 8088  # HEC input on Stream
+          protocol: TCP
+    - ports:
+        - port: 443  # HTTPS for pack download from GitHub
           protocol: TCP
