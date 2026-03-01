@@ -108,6 +108,31 @@ kubernetes-monitoring/
 | `make test-setup` | Create Python venv and install test deps |
 | `make clean` | Delete monitoring namespace |
 
+## Development Environment
+
+This project uses [Nix flakes](https://wiki.nixos.org/wiki/Flakes) + [direnv](https://direnv.net/) for a reproducible dev environment.
+
+### Prerequisites
+
+- [Nix](https://nixos.org/download/) with flakes enabled
+- [direnv](https://direnv.net/docs/installation.html) with [nix-direnv](https://github.com/nix-community/nix-direnv)
+
+### Setup
+
+```sh
+cd kubernetes-monitoring/main    # or any worktree
+direnv allow                     # one-time per worktree
+```
+
+### Tools provided
+
+- `kubectl`, `kubectx`/`kubens` — core Kubernetes CLI
+- `helm`, `helmfile`, `kustomize`, `helm-docs` — package management
+- `kubeconform`, `kube-linter`, `conftest`, `pluto` — validation & linting
+- `k9s`, `stern` — terminal UI and log tailing
+- `kind` — local cluster testing
+- `jq`, `yq` — utilities
+
 ## Documentation
 
 - [Deployment Guide](docs/DEPLOYMENT.md)

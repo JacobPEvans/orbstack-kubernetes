@@ -7,6 +7,7 @@
     "conftest",
     "crbl",
     "cribl",
+    "direnv",
     "dockerfiles",
     "doppler",
     "gitignored",
@@ -15,6 +16,8 @@
     "hammerspoon",
     "hostpath",
     "kubectl",
+    "kubectx",
+    "kubens",
     "kustomization",
     "kustomize",
     "lastmodified",
@@ -64,7 +67,13 @@
     "healthchecks",
     "fileconsumer",
     "SRCTYPE",
-    "jevans"
+    "jevans",
+    "nixpkgs",
+    "nixos",
+    "pkgs",
+    "kubeval",
+    "Rego",
+    "ENVRC"
   ],
   "ignorePaths": [
     "packs/",
