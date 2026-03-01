@@ -60,6 +60,17 @@ Directory layout:
 - `packs/` - (removed — pack now installed from [JacobPEvans/cc-edge-claude-code-otel](https://github.com/JacobPEvans/cc-edge-claude-code-otel) GitHub release at pod startup). Note: the `.crbl` download has no checksum/signature verification. Acceptable for this local OrbStack dev stack where the pack repo is under the same developer's GitHub account; not suitable for production without integrity checks.
 - `docs/` - Extended documentation
 
+## Dev Environment
+
+Uses [Nix flakes](https://wiki.nixos.org/wiki/Flakes) + [direnv](https://direnv.net/) for a reproducible dev environment.
+
+```sh
+direnv allow    # one-time per worktree, then automatic on cd
+nix develop     # manual activation
+```
+
+**Tools**: kubectl, kubectx, helm, helmfile, kustomize, kubeconform, kube-linter, conftest, pluto, k9s, stern, kind, jq, yq
+
 ## CI
 
 GitHub Actions run on every push and PR:
