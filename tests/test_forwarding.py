@@ -345,38 +345,45 @@ class TestClaudeCodeLogPipeline:
         assert sentinel_id in output, f"Sentinel ID {sentinel_id!r} not found in pod file content: {output!r}"
 
     def test_edge_file_monitor_config_path(self):
-        """Edge FileMonitor input is configured to monitor /home/claude/.claude/projects/."""
+        """Edge pack input is configured to monitor /home/claude/.claude/projects/.
+
+        The pack is installed via CRIBL_BEFORE_START_CMD and provides its own inputs.
+        Check the pack's inputs.yml or the runtime-merged inputs for the expected path.
+        """
+        # Try pack config first, fall back to local/edge/inputs.yml
         output, returncode = _kubectl_exec_no_fail(
             "statefulset/cribl-edge-standalone",
             "--",
             "sh",
             "-c",
-            "cat ${CRIBL_VOLUME_DIR:-/opt/cribl}/local/edge/inputs.yml",
+            "cat ${CRIBL_VOLUME_DIR:-/opt/cribl}/edge/packs/cc-edge-claude-code/default/inputs.yml "
+            "2>/dev/null || cat ${CRIBL_VOLUME_DIR:-/opt/cribl}/local/edge/inputs.yml 2>/dev/null",
         )
         assert returncode == 0, (
-            f"Could not read edge inputs.yml (exit {returncode}). "
-            "Check that CRIBL_BEFORE_START_CMD wrote inputs.yml to local/edge/."
+            f"Could not read edge inputs from pack or local config (exit {returncode}). "
+            "Check that CRIBL_BEFORE_START_CMD installed the pack correctly."
         )
-        assert "/home/claude/.claude/projects/" in output, (
-            f"Expected '/home/claude/.claude/projects/' in edge inputs.yml, got:\n{output}"
+        assert "/home/claude/.claude/projects" in output or "$CLAUDE_HOME/.claude/projects" in output, (
+            f"Expected Claude projects path in edge inputs, got:\n{output}"
         )
-        assert "*.jsonl" in output, f"Expected '*.jsonl' file pattern in edge inputs.yml, got:\n{output}"
+        assert "*.jsonl" in output, f"Expected '*.jsonl' file pattern in edge inputs, got:\n{output}"
 
     def test_edge_file_monitor_picks_up_sentinel(self, sentinel_claude_file):
-        """Edge FileMonitor logs a 'collector added' entry for a new .jsonl file within 35s.
+        """Edge FileMonitor logs a 'collector added' entry for a new .jsonl file within 60s.
 
         The FileMonitor polls every 10 seconds (interval: 10). A new file written on the
-        host should appear in edge logs within one poll cycle plus processing time.
+        host should appear in edge logs within a few poll cycles. After a fresh pod restart,
+        the initial scan of existing files can delay detection of new files.
         """
         sentinel_path, _ = sentinel_claude_file
-        deadline = time.time() + 35
+        deadline = time.time() + 60
         while time.time() < deadline:
-            logs = kubectl("logs", "statefulset/cribl-edge-standalone", "--since=2m")
+            logs = kubectl("logs", "statefulset/cribl-edge-standalone", "--since=3m")
             if sentinel_path.name in logs and "FileMonitor collector added" in logs:
                 return
             time.sleep(5)
         pytest.fail(
-            f"Edge FileMonitor did not log 'collector added' for {sentinel_path.name} within 35s. "
+            f"Edge FileMonitor did not log 'collector added' for {sentinel_path.name} within 60s. "
             "Check that the edge pack is installed and the hostPath volume is mounted correctly."
         )
 
@@ -406,10 +413,10 @@ class TestClaudeCodeLogPipeline:
     def test_edge_file_input_active(self):
         """Edge file monitor must be actively collecting files from the host filesystem.
 
-        Catches the failure mode where the pack or injected inputs.yml was not loaded
-        by the runtime (e.g. config written to wrong directory due to missing CRIBL_VOLUME_DIR).
-        The pack inputs are in the worker namespace and not listed by /api/v1/system/inputs,
-        so we verify activity via pod logs which show FileMonitor collector messages.
+        Catches the failure mode where the pack was not installed or loaded by the runtime
+        (e.g. pack download failed, CRIBL_VOLUME_DIR unset). The pack inputs are in the
+        worker namespace and not listed by /api/v1/system/inputs, so we verify activity
+        via pod logs which show FileMonitor collector messages.
         """
         # Fetch all logs since the current container started (no --since window) to avoid
         # a time-dependent failure: "FileMonitor collector added" appears at startup and

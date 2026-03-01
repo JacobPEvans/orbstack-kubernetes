@@ -47,7 +47,7 @@ Five StatefulSets in the monitoring namespace:
 |------------|------|-----|
 | `otel-collector` | OTLP receiver, forwards to Cribl Stream Standalone | None |
 | `cribl-edge-managed` | Cloud-managed edge, forwards to Cribl Cloud | None |
-| `cribl-edge-standalone` | Local edge with pack, forwards to Cribl Stream Standalone | :30910 |
+| `cribl-edge-standalone` | Local edge with [expanded pack](https://github.com/JacobPEvans/cc-edge-claude-code-otel) (9 file inputs + OTEL), forwards to Cribl Stream Standalone | :30910 |
 | `cribl-stream-standalone` | Local Stream leader with UI, outputs to Splunk HEC | :30900 |
 | `cribl-mcp-server` | Cribl Cloud MCP API server for Claude Code | :30030 |
 
@@ -57,7 +57,7 @@ Directory layout:
 - `k8s/overlays/local/` - Generated overlay with real volume paths (gitignored)
 - `scripts/` - Deployment and overlay generation scripts
 - `docker/` - Dockerfiles for ephemeral AI containers
-- `packs/` - Cribl Edge pack files (.crbl)
+- `packs/` - (removed — pack now installed from [JacobPEvans/cc-edge-claude-code-otel](https://github.com/JacobPEvans/cc-edge-claude-code-otel) GitHub release at pod startup)
 - `docs/` - Extended documentation
 
 ## CI
@@ -79,4 +79,7 @@ make status            # Check pod status
 make test-smoke        # Run smoke tests (cluster connectivity)
 make test-pipeline     # Run pipeline tests (OTLP flow)
 make test-forwarding   # Run forwarding tests (Cribl routing)
+make test-sourcetypes  # Run per-sourcetype E2E tests
+make test-unit         # Run unit tests (no cluster required)
+make test-all          # Run all tests in order
 ```

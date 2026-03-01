@@ -6,8 +6,10 @@ without any Kubernetes infrastructure.
 
 import json
 import urllib.error
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
+import pytest
 from helpers import find_flowing_stats, parse_otel_error_lines, query_splunk, url_present_in_outputs_yaml
 
 
@@ -140,3 +142,58 @@ class TestUrlPresentInOutputsYaml:
         # Dots in IP would match any char without re.escape — ensure they don't
         yaml = "url: https://192X168Y0Z200:8088/services/collector\n"
         assert url_present_in_outputs_yaml(url, yaml) is False
+
+
+class TestSecurityExclusions:
+    """Verify sensitive paths are not monitored by any Edge input."""
+
+    FORBIDDEN_PATTERNS = [
+        ".credentials.json",
+        "settings.json",
+        "settings.local.json",
+        "security_warnings_state_",
+        "debug/",
+        "telemetry/",
+        "paste-cache/",
+        "file-history/",
+        "backups/",
+        "cache/",
+    ]
+
+    # Absolute path to the Edge standalone ConfigMap
+    _CONFIGMAP_PATH = Path(__file__).parent.parent / "k8s/base/cribl-edge-standalone/configmap-cribl-config.yaml"
+
+    # Absolute path to the pack inputs file in the sibling repo
+    _PACK_INPUTS_PATH = Path("/Users/jevans/git/cc-edge-claude-code-otel/default/inputs.yml")
+
+    def test_no_forbidden_patterns_in_edge_inputs_configmap(self):
+        """Edge ConfigMap must not contain inputs monitoring sensitive paths."""
+        configmap_text = self._CONFIGMAP_PATH.read_text()
+
+        # Extract path: and filenames: value lines from the YAML text
+        violations = []
+        for line in configmap_text.splitlines():
+            stripped = line.strip()
+            # Only check lines that set path or filenames values
+            if not (stripped.startswith("path:") or stripped.startswith("filenames:")):
+                continue
+            for pattern in self.FORBIDDEN_PATTERNS:
+                if pattern in stripped:
+                    violations.append(f"Pattern '{pattern}' found in line: {stripped}")
+
+        assert violations == [], "Forbidden patterns found in Edge ConfigMap inputs:\n" + "\n".join(violations)
+
+    @pytest.mark.parametrize("pattern", FORBIDDEN_PATTERNS)
+    def test_forbidden_pattern_not_in_pack_inputs(self, pattern):
+        """Pack inputs.yml must not reference sensitive patterns."""
+        if not self._PACK_INPUTS_PATH.exists():
+            pytest.skip(f"Pack inputs.yml not found at {self._PACK_INPUTS_PATH}")
+
+        pack_inputs_text = self._PACK_INPUTS_PATH.read_text()
+
+        # Check every line that sets path or filenames values
+        for line in pack_inputs_text.splitlines():
+            stripped = line.strip()
+            if not (stripped.startswith("path:") or stripped.startswith("filenames:")):
+                continue
+            assert pattern not in stripped, f"Forbidden pattern '{pattern}' found in pack inputs.yml line: {stripped}"
