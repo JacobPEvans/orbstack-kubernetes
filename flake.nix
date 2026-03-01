@@ -70,18 +70,18 @@
             ];
 
             shellHook = ''
-              if [ -z "''${DIRENV_IN_ENVRC:-}" ] && [ -t 1 ]; then
+              if [ -z "''${DIRENV_DIR:-}" ] && [ -t 1 ]; then
                 echo "═══════════════════════════════════════════════════════════════"
                 echo "Kubernetes Development & Validation Environment"
                 echo "═══════════════════════════════════════════════════════════════"
                 echo ""
                 echo "Core CLI:"
-                echo "  - kubectl:   $(kubectl version --client 2>/dev/null | head -1 || echo 'available')"
+                echo "  - kubectl:   $(kubectl version --client 2>/dev/null | head -1 | grep . || echo 'available')"
                 echo "  - kubectx:   $(kubectx --version 2>/dev/null || echo 'available')"
                 echo ""
                 echo "Package Management:"
                 echo "  - helm:      $(helm version --short 2>/dev/null || echo 'available')"
-                echo "  - helmfile:  $(helmfile --version 2>/dev/null | head -1 || echo 'available')"
+                echo "  - helmfile:  $(helmfile --version 2>/dev/null | head -1 | grep . || echo 'available')"
                 echo "  - kustomize: $(kustomize version 2>/dev/null || echo 'available')"
                 echo ""
                 echo "Validation & Linting:"

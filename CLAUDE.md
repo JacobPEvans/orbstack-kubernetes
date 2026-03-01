@@ -69,7 +69,7 @@ direnv allow    # one-time per worktree, then automatic on cd
 nix develop     # manual activation
 ```
 
-**Tools**: kubectl, kubectx, helm, helmfile, kustomize, kubeconform, kube-linter, conftest, pluto, k9s, stern, kind, jq, yq
+**Tools**: kubectl, kubectx, helm, helmfile, helm-docs, kustomize, kubeconform, kube-linter, conftest, pluto, k9s, stern, kind, jq, yq
 
 ## CI
 
