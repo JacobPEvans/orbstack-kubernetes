@@ -70,13 +70,13 @@
             ];
 
             shellHook = ''
-              if [ -z "''${DIRENV_IN_ENVRC:-}" ]; then
+              if [ -z "''${DIRENV_IN_ENVRC:-}" ] && [ -t 1 ]; then
                 echo "═══════════════════════════════════════════════════════════════"
                 echo "Kubernetes Development & Validation Environment"
                 echo "═══════════════════════════════════════════════════════════════"
                 echo ""
                 echo "Core CLI:"
-                echo "  - kubectl:   $(kubectl version --client --short 2>/dev/null || kubectl version --client 2>/dev/null | head -1 || echo 'available')"
+                echo "  - kubectl:   $(kubectl version --client 2>/dev/null | head -1 || echo 'available')"
                 echo "  - kubectx:   $(kubectx --version 2>/dev/null || echo 'available')"
                 echo ""
                 echo "Package Management:"
