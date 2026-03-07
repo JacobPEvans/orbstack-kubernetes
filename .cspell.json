@@ -75,6 +75,9 @@
     "Rego",
     "ENVRC",
     "mypod",
+    "antigravity",
+    "gemini",
+    "pbtxt",
     "pyyaml"
   ],
   "ignorePaths": [

@@ -1,22 +1,27 @@
-"""Tier 4: Per-sourcetype E2E tests for the Claude Code log pipeline.
+"""Tier 4: Per-sourcetype E2E tests for the Claude Code and Gemini log pipelines.
 
-These tests verify that each sourcetype in the claude:code:* family is correctly
-assigned by the Cribl Stream pipeline when events travel through the full path:
+These tests verify that each sourcetype in the claude:code:* and gemini:cli:* families
+is correctly assigned by the Cribl Stream pipeline when events travel through the full
+path:
   Host FS → Cribl Edge Standalone → Cribl Stream Standalone → Splunk HEC
 
-Three test classes:
+Five test classes:
 
-  TestSourcetypeSentinels   — Write sentinel files to the host FS, wait for them
-                              to appear in Splunk with the correct sourcetype (6 sources).
-  TestSourcetypeExistence   — Query Splunk for any existing data with the expected
-                              sourcetype (history, stats, plugins — live files we
-                              cannot safely write test data to).
-  TestInputConfigurations   — Verify the Edge pod has the expected FileMonitor inputs
-                              active and that each expected datatype is configured.
+  TestSourcetypeSentinels       — Write sentinel files to the host FS, wait for them
+                                  to appear in Splunk with the correct sourcetype (6 sources).
+  TestSourcetypeExistence       — Query Splunk for any existing data with the expected
+                                  sourcetype (history, stats, plugins — live files we
+                                  cannot safely write test data to).
+  TestInputConfigurations       — Verify the Edge pod has the expected FileMonitor inputs
+                                  active and that each expected datatype is configured.
+  TestGeminiSourcetypeExistence — Query Splunk for gemini:cli:* and antigravity:* data.
+  TestGeminiInputConfigurations — Verify the Edge pod has the expected Gemini datatypes.
 """
 
 import errno
 import json
+import shutil
+import subprocess
 import time
 import uuid
 from datetime import datetime, timezone
@@ -41,6 +46,16 @@ SOURCETYPE_TEAMS = "claude:code:teams"
 SOURCETYPE_PLUGINS = "claude:code:plugins"
 # claude:code:otel is covered by TestStreamToSplunkForwarding in test_forwarding.py
 
+# Gemini sourcetype constants
+SOURCETYPE_GEMINI_SESSION = "gemini:cli:session"
+SOURCETYPE_GEMINI_LOGS = "gemini:cli:logs"
+SOURCETYPE_GEMINI_SETTINGS = "gemini:cli:settings"
+SOURCETYPE_GEMINI_PROJECTS = "gemini:cli:projects"
+SOURCETYPE_ANTIGRAVITY_APP_LOGS = "antigravity:app-logs"
+SOURCETYPE_ANTIGRAVITY_BRAIN = "antigravity:brain"
+SOURCETYPE_ANTIGRAVITY_ANNOTATIONS = "antigravity:annotations"
+SOURCETYPE_ANTIGRAVITY_CODE_TRACKER = "antigravity:code-tracker"
+
 # ---------------------------------------------------------------------------
 # Expected Edge FileMonitor input datatypes (datatype IDs in the pack)
 # ---------------------------------------------------------------------------
@@ -54,6 +69,17 @@ EXPECTED_DATATYPES = [
     "claude-code-tasks",
     "claude-code-teams",
     "claude-code-plugins",
+]
+
+EXPECTED_GEMINI_DATATYPES = [
+    "gemini-cli-sessions",
+    "gemini-cli-logs",
+    "gemini-cli-settings",
+    "gemini-cli-projects",
+    "antigravity-app-logs",
+    "antigravity-brain",
+    "antigravity-annotations",
+    "antigravity-code-tracker",
 ]
 
 # ---------------------------------------------------------------------------
@@ -563,5 +589,214 @@ class TestInputConfigurations:
         assert datatype in output, (
             f"Datatype '{datatype}' not found in edge inputs.yml. "
             "The pack may be missing this input or the datatype ID may have changed. "
+            f"inputs.yml excerpt (first 500 chars):\n{output[:500]}"
+        )
+
+
+# ---------------------------------------------------------------------------
+# Gemini sentinel fixtures (safe write paths only)
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def sentinel_antigravity_brain():
+    """Write a Markdown sentinel to ~/.gemini/antigravity/brain/ matching the antigravity-brain input.
+
+    The Gemini pack's antigravity-brain input monitors $GEMINI_HOME/.gemini/antigravity/brain/
+    for *.md files. Yields (path, sentinel_id). Cleans up after the test.
+    """
+    brain_dir = Path.home() / ".gemini" / "antigravity" / "brain"
+    brain_dir.mkdir(parents=True, exist_ok=True)
+    sentinel_id = f"SRCTYPE_ANTIGRAVITY_BRAIN_{uuid.uuid4().hex[:12]}"
+    sentinel_file = brain_dir / f"sentinel-{sentinel_id}.md"
+    sentinel_file.write_text(f"# Sentinel\n\nsentinel: {sentinel_id}\n")
+    yield sentinel_file, sentinel_id
+    try:
+        sentinel_file.unlink()
+    except FileNotFoundError:
+        pass
+
+
+# ---------------------------------------------------------------------------
+# Gemini sentinel-based E2E tests
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.usefixtures("cluster_ready")
+class TestGeminiSourcetypeSentinels:
+    """Verify Gemini sourcetypes are correctly assigned end-to-end: Host FS → Edge → Stream → Splunk.
+
+    Uses safe write paths only (tmp/, antigravity/brain/) to avoid corrupting live Gemini data.
+    """
+
+    def test_gemini_session_sourcetype(self, splunk_client):
+        """Real Gemini CLI session reaches Splunk as gemini:cli:session.
+
+        Invokes the Gemini CLI with a unique sentinel prompt, then polls Splunk until
+        the session file content appears with sourcetype=gemini:cli:session within 120s.
+        This proves the full pipeline: Gemini CLI → ~/.gemini/tmp/ → Edge FileMonitor
+        (gemini-cli-sessions input) → Cribl Stream → Splunk HEC.
+        """
+        gemini_bin = shutil.which("gemini") or ""
+        if not gemini_bin:
+            pytest.skip("gemini CLI not found in PATH; cannot run E2E session test")
+
+        sentinel_id = f"GEMINI_E2E_{uuid.uuid4().hex[:12]}"
+
+        # gemini -p launches an agentic session that can run for several minutes.
+        # We only need it to start and write session files to ~/.gemini/tmp/; we
+        # don't need it to finish. Catch TimeoutExpired and continue so Splunk
+        # polling can still verify the session data made it through the pipeline.
+        try:
+            result = subprocess.run(
+                [gemini_bin, "-p", f"kubernetes-monitoring test sentinel {sentinel_id}"],
+                capture_output=True,
+                text=True,
+                timeout=300,
+            )
+            if result.returncode != 0:
+                pytest.skip(f"gemini CLI exited {result.returncode}: {result.stderr[:200]}")
+        except subprocess.TimeoutExpired:
+            pass  # session files already written; proceed to poll Splunk
+
+        mgmt_url, admin_password = splunk_client
+        results = _wait_for_splunk(
+            mgmt_url,
+            admin_password,
+            f'index=gemini sourcetype={SOURCETYPE_GEMINI_SESSION} "{sentinel_id}"',
+            deadline_seconds=120,
+        )
+        assert results, (
+            f"Gemini session sentinel '{sentinel_id}' not found in Splunk with "
+            f"sourcetype={SOURCETYPE_GEMINI_SESSION} within 120s. "
+            "Check that the Edge FileMonitor picks up ~/.gemini/tmp/**/*.json "
+            "(gemini-cli-sessions input) and that the Stream pipeline assigns "
+            "sourcetype=gemini:cli:session."
+        )
+
+    def test_antigravity_brain_sourcetype(self, sentinel_antigravity_brain, splunk_client):
+        """*.md files in ~/.gemini/antigravity/brain/ reach Splunk as antigravity:brain.
+
+        Writes a sentinel *.md into ~/.gemini/antigravity/brain/ and verifies that it reaches
+        Splunk index=gemini with sourcetype=antigravity:brain within 90s.
+        """
+        _, sentinel_id = sentinel_antigravity_brain
+        mgmt_url, admin_password = splunk_client
+        results = _wait_for_splunk(
+            mgmt_url,
+            admin_password,
+            f'index=gemini sourcetype={SOURCETYPE_ANTIGRAVITY_BRAIN} "{sentinel_id}"',
+        )
+        assert results, (
+            f"Sentinel '{sentinel_id}' not found in Splunk with sourcetype={SOURCETYPE_ANTIGRAVITY_BRAIN} within 90s. "
+            "Check that the Edge FileMonitor picks up ~/.gemini/antigravity/brain/*.md and that the "
+            "Stream pipeline assigns sourcetype=antigravity:brain for Antigravity brain files."
+        )
+
+
+# ---------------------------------------------------------------------------
+# Gemini query-only existence tests (live files — no sentinel writes)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.usefixtures("cluster_ready")
+class TestGeminiSourcetypeExistence:
+    """Verify that Gemini data exists in Splunk (or skip informatively).
+
+    Queries Splunk for any events with gemini:cli:* and antigravity:* sourcetypes
+    over the last 24 hours. Skips (not fails) when no data is found — expected on
+    a fresh host before any Gemini CLI activity.
+    """
+
+    def test_gemini_cli_sourcetypes_exist(self, splunk_client):
+        """Splunk should contain at least one event with sourcetype=gemini:cli:* in the last 24h."""
+        mgmt_url, admin_password = splunk_client
+        results = query_splunk(
+            mgmt_url,
+            admin_password,
+            "index=gemini sourcetype=gemini:cli:*",
+            earliest="-24h",
+        )
+        if not results:
+            pytest.skip(
+                "No events found in Splunk with sourcetype=gemini:cli:* in the last 24h. "
+                "This is expected if Gemini CLI has not been used recently or the pipeline "
+                "has not yet ingested Gemini files. Use Gemini CLI and re-test."
+            )
+
+    def test_antigravity_sourcetypes_exist(self, splunk_client):
+        """Splunk should contain at least one event with sourcetype=antigravity:* in the last 24h."""
+        mgmt_url, admin_password = splunk_client
+        results = query_splunk(
+            mgmt_url,
+            admin_password,
+            "index=gemini sourcetype=antigravity:*",
+            earliest="-24h",
+        )
+        if not results:
+            pytest.skip(
+                "No events found in Splunk with sourcetype=antigravity:* in the last 24h. "
+                "This is expected if Antigravity IDE has not been used recently or the pipeline "
+                "has not yet ingested Antigravity files."
+            )
+
+
+# ---------------------------------------------------------------------------
+# Gemini Edge input configuration validation tests
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.usefixtures("cluster_ready")
+class TestGeminiInputConfigurations:
+    """Verify the Edge pod has the expected Gemini FileMonitor inputs active and configured.
+
+    Inspects the merged inputs.yml in the running Edge pod to confirm that CMD_3
+    (Gemini pack merge) ran successfully and that all Gemini datatypes are present.
+    """
+
+    def test_edge_inputs_yml_contains_gemini_paths(self):
+        """Edge inputs.yml should reference ~/.gemini monitoring paths.
+
+        Reads the merged inputs.yml from the edge pod and verifies that the Gemini
+        home directory path is present, confirming CMD_3 (Gemini pack merge) ran.
+        """
+        output, returncode = kubectl_exec_no_fail(
+            "statefulset/cribl-edge-standalone",
+            "--",
+            "sh",
+            "-c",
+            "cat ${CRIBL_VOLUME_DIR:-/opt/cribl}/local/edge/inputs.yml",
+        )
+        assert returncode == 0, (
+            f"Could not read edge inputs.yml (exit {returncode}). "
+            "Check that CRIBL_BEFORE_START_CMD_3 merged the Gemini pack inputs."
+        )
+        assert "/home/gemini/.gemini" in output or "$GEMINI_HOME/.gemini" in output, (
+            f"Expected Gemini home path in edge inputs.yml, got:\n{output[:500]}\n"
+            "CRIBL_BEFORE_START_CMD_3 may have failed — check pod startup logs."
+        )
+
+    @pytest.mark.parametrize("datatype", EXPECTED_GEMINI_DATATYPES)
+    def test_edge_gemini_datatype_configured(self, datatype: str):
+        """Each expected Gemini datatype should appear in the Edge's merged inputs.yml.
+
+        Confirms CMD_3 merged the Gemini pack inputs into the Claude pack inputs.yml
+        successfully. A missing datatype indicates the merge step failed.
+
+        Args:
+            datatype: The Cribl datatype ID to search for, e.g. 'gemini-cli-sessions'.
+        """
+        output, returncode = kubectl_exec_no_fail(
+            "statefulset/cribl-edge-standalone",
+            "--",
+            "sh",
+            "-c",
+            "cat ${CRIBL_VOLUME_DIR:-/opt/cribl}/local/edge/inputs.yml",
+        )
+        if returncode != 0:
+            pytest.skip(f"Could not read edge inputs.yml (exit {returncode}); skipping Gemini datatype check.")
+        assert datatype in output, (
+            f"Gemini datatype '{datatype}' not found in edge inputs.yml. "
+            "CRIBL_BEFORE_START_CMD_3 (Gemini pack merge) may have failed. "
             f"inputs.yml excerpt (first 500 chars):\n{output[:500]}"
         )
