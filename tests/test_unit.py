@@ -5,6 +5,7 @@ without any Kubernetes infrastructure.
 """
 
 import json
+import re
 import ssl
 import urllib.error
 from pathlib import Path
@@ -197,9 +198,10 @@ class TestSecurityExclusions:
         """
         configmap_text = self._CONFIGMAP_PATH.read_text()
 
-        # The ConfigMap should not contain any inputs.yml data key
-        assert "inputs.yml" not in configmap_text, (
-            "Edge ConfigMap should not contain inputs.yml — "
+        # The ConfigMap should not contain inputs.yml as a YAML data key.
+        # (References to the filename as a string in shell scripts are acceptable.)
+        assert not re.search(r"^\s*inputs\.yml\s*:", configmap_text, re.MULTILINE), (
+            "Edge ConfigMap should not contain inputs.yml as a YAML key — "
             "inputs are managed by the external pack installed at pod startup"
         )
 
