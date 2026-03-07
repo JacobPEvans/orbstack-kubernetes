@@ -15,6 +15,7 @@ import pytest
 BASE_DIR = Path(__file__).parent.parent / "k8s" / "base"
 NETWORK_POLICIES_DIR = BASE_DIR / "network-policies"
 EDGE_STANDALONE_DIR = BASE_DIR / "cribl-edge-standalone"
+OTEL_COLLECTOR_DIR = BASE_DIR / "otel-collector"
 
 # Absolute paths under these prefixes are valid system mounts in base manifests.
 _SYSTEM_PATH_PREFIXES = ("/var/", "/proc/", "/sys/", "/dev/", "/etc/", "/tmp/", "/run/")
@@ -60,11 +61,14 @@ class TestArchitectureInvariant:
         )
 
     def test_stream_egress_policy_allows_external_splunk(self):
-        """Stream egress must reach external Splunk — policy must NOT restrict by podSelector."""
+        """Stream egress must reach external Splunk — egress rules must not restrict by podSelector."""
         policy_text = (NETWORK_POLICIES_DIR / "allow-stream-egress.yaml").read_text()
-        # A podSelector in the egress rule would block external Splunk access
-        assert "podSelector" not in policy_text, (
-            "Stream egress policy must not use podSelector — it must reach external Splunk hosts"
+        # spec.podSelector selects which pods the policy applies to — that's fine.
+        # A podSelector inside the egress rules would restrict traffic to internal pods only,
+        # blocking external Splunk access. Check only the egress rules section.
+        egress_section = policy_text.split("egress:", 1)[-1] if "egress:" in policy_text else ""
+        assert "podSelector" not in egress_section, (
+            "Stream egress rules must not use podSelector — egress must reach external Splunk hosts"
         )
 
     def test_stream_egress_policy_uses_splunk_hec_port(self):
@@ -78,6 +82,56 @@ class TestArchitectureInvariant:
         assert "Ingress" in policy_text, "Default deny policy must include Ingress in policyTypes"
         assert "Egress" in policy_text, "Default deny policy must include Egress in policyTypes"
         assert "podSelector: {}" in policy_text, "Default deny policy must apply to all pods (empty podSelector)"
+
+
+class TestOtelStreamPath:
+    """Verify the OTEL collector → Stream leg of the core architecture invariant.
+
+    The full data path is: Edge → Stream → Splunk (CLAUDE.md invariant).
+    This class covers the OTEL → Stream sub-path: the OTEL collector must
+    forward to cribl-stream-standalone via OTLP gRPC (port 4317), enforced
+    by both the ConfigMap exporter config and the network policies.
+    """
+
+    def test_otel_configmap_exporter_targets_stream_not_splunk(self):
+        """OTEL ConfigMap otlp exporter endpoint must reference cribl-stream-standalone, not Splunk."""
+        configmap_text = (OTEL_COLLECTOR_DIR / "configmap.yaml").read_text()
+        assert "cribl-stream-standalone" in configmap_text, (
+            "OTEL ConfigMap otlp exporter must target cribl-stream-standalone, not Splunk directly"
+        )
+
+    def test_otel_configmap_exporter_uses_otlp_grpc_port(self):
+        """OTEL ConfigMap otlp exporter endpoint must use port 4317 (OTLP gRPC)."""
+        configmap_text = (OTEL_COLLECTOR_DIR / "configmap.yaml").read_text()
+        assert "cribl-stream-standalone:4317" in configmap_text, (
+            "OTEL ConfigMap otlp exporter must use port 4317 (OTLP gRPC) to reach cribl-stream-standalone"
+        )
+
+    def test_otel_egress_policy_targets_stream_pod_selector(self):
+        """allow-otel-egress must use a podSelector for cribl-stream-standalone."""
+        policy_text = (NETWORK_POLICIES_DIR / "allow-otel-egress.yaml").read_text()
+        assert "cribl-stream-standalone" in policy_text, (
+            "OTEL egress policy must restrict to cribl-stream-standalone via podSelector"
+        )
+
+    def test_otel_egress_policy_uses_otlp_port(self):
+        """allow-otel-egress must specify port 4317 (OTLP gRPC)."""
+        policy_text = (NETWORK_POLICIES_DIR / "allow-otel-egress.yaml").read_text()
+        assert "4317" in policy_text, "OTEL egress policy must specify port 4317 for OTLP gRPC forwarding to Stream"
+
+    def test_stream_ingress_accepts_otel_traffic(self):
+        """allow-stream-ingress must permit otel-collector on port 4317."""
+        policy_text = (NETWORK_POLICIES_DIR / "allow-stream-ingress.yaml").read_text()
+        assert "otel-collector" in policy_text, "Stream ingress policy must permit otel-collector as a source"
+        assert "4317" in policy_text, "Stream ingress policy must permit port 4317 for OTEL traffic"
+
+    def test_stream_ingress_accepts_edge_standalone_traffic(self):
+        """allow-stream-ingress must permit cribl-edge-standalone on port 8088."""
+        policy_text = (NETWORK_POLICIES_DIR / "allow-stream-ingress.yaml").read_text()
+        assert "cribl-edge-standalone" in policy_text, (
+            "Stream ingress policy must permit cribl-edge-standalone as a source"
+        )
+        assert "8088" in policy_text, "Stream ingress policy must permit port 8088 for HEC traffic from Edge Standalone"
 
 
 class TestPlaceholderHomeDirRule:
