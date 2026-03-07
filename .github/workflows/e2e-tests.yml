@@ -15,7 +15,7 @@ permissions:
 jobs:
   e2e:
     name: Deploy and run E2E tests
-    runs-on: [self-hosted, macOS]
+    runs-on: [self-hosted, Linux]
     steps:
       - uses: actions/checkout@v6
       - name: Install test dependencies

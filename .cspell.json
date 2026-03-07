@@ -78,7 +78,10 @@
     "antigravity",
     "gemini",
     "pbtxt",
-    "pyyaml"
+    "pyyaml",
+    "kubeconfig",
+    "KUBECONFIG",
+    "libicu"
   ],
   "ignorePaths": [
     "packs/",

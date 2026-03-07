@@ -1,4 +1,4 @@
-.PHONY: help validate validate-schemas generate-overlay deploy deploy-doppler status logs build-images run-claude run-gemini test test-e2e test-smoke test-pipeline test-forwarding test-sourcetypes test-unit test-all test-setup full-power power-save power-status clean
+.PHONY: help validate validate-schemas generate-overlay deploy deploy-doppler status logs build-images run-claude run-gemini test test-e2e test-smoke test-pipeline test-forwarding test-sourcetypes test-unit test-all test-setup full-power power-save power-status clean runner-build runner-start runner-stop runner-status runner-logs
 
 CONTEXT ?= orbstack
 NAMESPACE := monitoring
@@ -96,3 +96,33 @@ power-status: ## Show monitoring pod replica counts and macOS power source
 
 clean: ## Delete monitoring namespace (destructive!)
 	kubectl --context $(CONTEXT) delete namespace $(NAMESPACE) --ignore-not-found
+
+runner-build: ## Build the self-hosted runner Docker image
+	docker build -t kubernetes-monitoring/actions-runner:latest docker/actions-runner/
+
+runner-start: ## Start the self-hosted GitHub Actions runner
+	@scripts/runner-kubeconfig.sh > ~/.config/actions-runner-kubeconfig
+	@TOKEN=$$(gh api repos/JacobPEvans/kubernetes-monitoring/actions/runners/registration-token --method POST --jq '.token') && \
+	docker run -d \
+	  --name actions-runner \
+	  --restart=always \
+	  -e GITHUB_REPOSITORY=JacobPEvans/kubernetes-monitoring \
+	  -e RUNNER_TOKEN="$$TOKEN" \
+	  -e RUNNER_NAME=orbstack-runner \
+	  -e RUNNER_LABELS="self-hosted,Linux" \
+	  -e SOPS_AGE_KEY_FILE=/home/runner/.config/sops/age/keys.txt \
+	  -e KUBECONFIG=/home/runner/.kube/config \
+	  -v $(HOME)/.config/actions-runner-kubeconfig:/home/runner/.kube/config:ro \
+	  -v $(HOME)/.config/sops/age/keys.txt:/home/runner/.config/sops/age/keys.txt:ro \
+	  kubernetes-monitoring/actions-runner:latest
+
+runner-stop: ## Stop and remove the self-hosted runner
+	docker stop actions-runner 2>/dev/null || true
+	docker rm actions-runner 2>/dev/null || true
+
+runner-status: ## Show runner container and GitHub registration status
+	@docker ps --filter name=actions-runner --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}' 2>/dev/null || true
+	@gh api repos/JacobPEvans/kubernetes-monitoring/actions/runners --jq '.runners[] | {name, status, labels: [.labels[].name]}' 2>/dev/null || true
+
+runner-logs: ## Tail runner container logs
+	docker logs -f actions-runner
