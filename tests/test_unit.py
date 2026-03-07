@@ -5,6 +5,7 @@ without any Kubernetes infrastructure.
 """
 
 import json
+import ssl
 import urllib.error
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -115,6 +116,28 @@ class TestQuerySplunk:
             mock_open.side_effect = OSError("network unreachable")
             results = query_splunk("https://splunk:8089", "pass", "index=claude")
         assert results == []
+
+    def test_verify_tls_false_disables_ssl_checks(self):
+        """verify_tls=False must set check_hostname=False and verify_mode=CERT_NONE."""
+        mock_ctx = MagicMock(spec=ssl.SSLContext)
+        lines = [json.dumps({"result": {"id": "1"}}).encode()]
+        with patch("helpers.ssl.create_default_context", return_value=mock_ctx):
+            with patch("helpers.urllib.request.urlopen") as mock_open:
+                mock_open.return_value = self._urlopen_ctx(lines)
+                query_splunk("https://splunk:8089", "pass", "index=claude", verify_tls=False)
+        assert mock_ctx.check_hostname is False
+        assert mock_ctx.verify_mode == ssl.CERT_NONE
+
+    def test_verify_tls_true_preserves_ssl_checks(self):
+        """verify_tls=True must leave the SSL context defaults intact (no attribute overrides)."""
+        mock_ctx = MagicMock(spec=ssl.SSLContext)
+        lines = [json.dumps({"result": {"id": "1"}}).encode()]
+        with patch("helpers.ssl.create_default_context", return_value=mock_ctx):
+            with patch("helpers.urllib.request.urlopen") as mock_open:
+                mock_open.return_value = self._urlopen_ctx(lines)
+                query_splunk("https://splunk:8089", "pass", "index=claude", verify_tls=True)
+        assert mock_ctx.check_hostname is not False
+        assert mock_ctx.verify_mode != ssl.CERT_NONE
 
 
 class TestUrlPresentInOutputsYaml:

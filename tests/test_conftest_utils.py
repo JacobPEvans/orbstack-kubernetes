@@ -185,6 +185,16 @@ class TestKubectlJson:
             with pytest.raises(RuntimeError):
                 kubectl_json("get", "secret", "missing")
 
+    def test_raises_json_decode_error_on_invalid_output(self):
+        """kubectl_json passes stdout through json.loads; invalid JSON must raise JSONDecodeError."""
+        mock_result = MagicMock()
+        mock_result.returncode = 0
+        mock_result.stdout = "not valid json\n"
+        mock_result.stderr = ""
+        with patch("conftest.subprocess.run", return_value=mock_result):
+            with pytest.raises(json.JSONDecodeError):
+                kubectl_json("get", "pods")
+
 
 class TestPortForwardGet:
     def _make_proc(self, poll_return=None):
@@ -219,5 +229,15 @@ class TestPortForwardGet:
                     with patch("conftest.time.sleep"):
                         with pytest.raises(pytest.fail.Exception, match="Timed out"):
                             port_forward_get("otel-collector", 13133, 13133, "/", timeout_seconds=15)
+        proc.terminate.assert_called_once()
+        proc.wait.assert_called_once()
+
+    def test_cleans_up_process_when_process_exits_early(self):
+        """terminate() and wait() must be called in the finally block even when process exits early."""
+        proc = self._make_proc(poll_return=1)
+        with patch("conftest.subprocess.Popen", return_value=proc):
+            with patch("conftest.time.time", side_effect=[0, 1]):
+                with pytest.raises(pytest.fail.Exception, match="exited before request"):
+                    port_forward_get("otel-collector", 13133, 13133, "/")
         proc.terminate.assert_called_once()
         proc.wait.assert_called_once()
