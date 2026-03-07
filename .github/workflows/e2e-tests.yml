@@ -18,9 +18,9 @@ jobs:
     runs-on: [self-hosted, macOS]
     steps:
       - uses: actions/checkout@v6
-      - name: Deploy to OrbStack
-        run: make deploy-doppler
       - name: Install test dependencies
         run: make test-setup
+      - name: Deploy to OrbStack
+        run: make deploy-doppler
       - name: Run E2E test suite
         run: make test-e2e
