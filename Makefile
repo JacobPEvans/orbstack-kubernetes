@@ -114,8 +114,12 @@ runner-start: ## Start the self-hosted GitHub Actions runner
 	  -e SOPS_AGE_KEY_FILE=/home/runner/.config/sops/age/keys.txt \
 	  -e KUBECONFIG=/home/runner/.kube/config \
 	  -e DOPPLER_TOKEN="$$DOPPLER_TOKEN" \
+	  -e DEPLOY_HOME_DIR=$(HOME) \
+	  -e K8S_NODEPORT_HOST=host.internal \
+	  -e CLAUDE_HOME=$(HOME) \
 	  -v $(HOME)/.config/actions-runner-kubeconfig:/home/runner/.kube/config:ro \
 	  -v $(HOME)/.config/sops/age/keys.txt:/home/runner/.config/sops/age/keys.txt:ro \
+	  -v $(HOME)/.claude:$(HOME)/.claude:rw \
 	  kubernetes-monitoring/actions-runner:latest
 
 runner-stop: ## Stop and remove the self-hosted runner
