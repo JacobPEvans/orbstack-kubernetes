@@ -11,6 +11,7 @@ import re
 from pathlib import Path
 
 import pytest
+import yaml
 
 BASE_DIR = Path(__file__).parent.parent / "k8s" / "base"
 NETWORK_POLICIES_DIR = BASE_DIR / "network-policies"
@@ -60,12 +61,19 @@ class TestArchitectureInvariant:
         )
 
     def test_stream_egress_policy_allows_external_splunk(self):
-        """Stream egress must reach external Splunk — policy must NOT restrict by podSelector."""
+        """Stream egress must reach external Splunk — egress 'to:' entries must not restrict by podSelector."""
         policy_text = (NETWORK_POLICIES_DIR / "allow-stream-egress.yaml").read_text()
-        # A podSelector in the egress rule would block external Splunk access
-        assert "podSelector" not in policy_text, (
-            "Stream egress policy must not use podSelector — it must reach external Splunk hosts"
-        )
+        policy = yaml.safe_load(policy_text)
+        # spec.podSelector identifies which pods this policy applies to — always expected.
+        # An egress 'to:' entry with podSelector would restrict egress to in-cluster pods only,
+        # preventing access to an external Splunk host. No 'to:' restriction means all
+        # destinations are allowed, which is correct for external Splunk egress.
+        for rule in policy.get("spec", {}).get("egress", []):
+            for to_entry in rule.get("to", []):
+                assert "podSelector" not in to_entry, (
+                    "Stream egress policy must not use podSelector in 'to:' entries — "
+                    "Splunk is an external host, not an in-cluster pod"
+                )
 
     def test_stream_egress_policy_uses_splunk_hec_port(self):
         """Stream egress must specify port 8088 for Splunk HEC forwarding."""
