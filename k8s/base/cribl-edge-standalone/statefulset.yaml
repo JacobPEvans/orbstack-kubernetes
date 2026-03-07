@@ -55,6 +55,8 @@ spec:
                 mkdir -p ${CRIBL_VOLUME_DIR}/local/edge &&
                 cp /var/tmp/cribl-config/outputs.yml
                 ${CRIBL_VOLUME_DIR}/local/edge/outputs.yml
+            - name: CRIBL_BEFORE_START_CMD_2
+              value: /bin/sh /var/tmp/cribl-config/install-packs.sh &
           volumeMounts:
             - name: claude-logs
               mountPath: /home/claude/.claude
@@ -79,10 +81,6 @@ spec:
               readOnly: true
             - name: cribl-data
               mountPath: /opt/cribl/data
-          lifecycle:
-            postStart:
-              exec:
-                command: ["/bin/sh", "/var/tmp/cribl-config/install-packs.sh"]
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:
