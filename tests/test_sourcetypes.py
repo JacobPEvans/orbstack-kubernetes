@@ -20,6 +20,8 @@ Five test classes:
 
 import errno
 import json
+import shutil
+import subprocess
 import time
 import uuid
 from datetime import datetime, timezone
@@ -597,30 +599,6 @@ class TestInputConfigurations:
 
 
 @pytest.fixture
-def sentinel_gemini_session():
-    """Write a JSON sentinel to ~/.gemini/tmp/ matching the gemini-cli-sessions input.
-
-    The Gemini pack's gemini-cli-sessions input monitors $GEMINI_HOME/.gemini/tmp/
-    for session-*.json files. Yields (path, sentinel_id). Cleans up after the test.
-    """
-    gemini_tmp = Path.home() / ".gemini" / "tmp"
-    gemini_tmp.mkdir(parents=True, exist_ok=True)
-    sentinel_id = f"SRCTYPE_GEMINI_SESSION_{uuid.uuid4().hex[:12]}"
-    sentinel_file = gemini_tmp / f"session-{sentinel_id}.json"
-    sentinel_data = {
-        "timestamp": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
-        "sentinel": sentinel_id,
-        "message": "sourcetype sentinel for gemini:cli:session",
-    }
-    sentinel_file.write_text(json.dumps(sentinel_data) + "\n")
-    yield sentinel_file, sentinel_id
-    try:
-        sentinel_file.unlink()
-    except FileNotFoundError:
-        pass
-
-
-@pytest.fixture
 def sentinel_antigravity_brain():
     """Write a Markdown sentinel to ~/.gemini/antigravity/brain/ matching the antigravity-brain input.
 
@@ -652,29 +630,42 @@ class TestGeminiSourcetypeSentinels:
     """
 
     def test_gemini_session_sourcetype(self, splunk_client):
-        """session-*.json files in ~/.gemini/tmp/ reach Splunk as gemini:cli:session.
+        """Real Gemini CLI session reaches Splunk as gemini:cli:session.
 
-        Known issue: The gemini-cli-sessions Cribl Edge FileMonitor does not start its
-        periodic scanning loop after pack migration in Edge 4.16.1 (same pre-existing
-        behavior as claude-code-teams, claude-code-history, claude-code-stats, and
-        claude-code-plugins). Sentinel-based assertion is not viable until the upstream
-        Cribl Edge bug is resolved. This test therefore queries for any existing session
-        events in the last 24h and skips informatively when none are found.
+        Invokes the Gemini CLI with a unique sentinel prompt, then polls Splunk until
+        the session file content appears with sourcetype=gemini:cli:session within 120s.
+        This proves the full pipeline: Gemini CLI → ~/.gemini/tmp/ → Edge FileMonitor
+        (gemini-cli-sessions input) → Cribl Stream → Splunk HEC.
         """
+        gemini_bin = shutil.which("gemini") or ""
+        if not gemini_bin:
+            pytest.skip("gemini CLI not found in PATH; cannot run E2E session test")
+
+        sentinel_id = f"GEMINI_E2E_{uuid.uuid4().hex[:12]}"
+
+        result = subprocess.run(
+            [gemini_bin, "-p", f"kubernetes-monitoring test sentinel {sentinel_id}"],
+            capture_output=True,
+            text=True,
+            timeout=60,
+        )
+        if result.returncode != 0:
+            pytest.skip(f"gemini CLI exited {result.returncode}: {result.stderr[:200]}")
+
         mgmt_url, admin_password = splunk_client
-        results = query_splunk(
+        results = _wait_for_splunk(
             mgmt_url,
             admin_password,
-            f"index=gemini sourcetype={SOURCETYPE_GEMINI_SESSION}",
-            earliest="-24h",
+            f'index=gemini sourcetype={SOURCETYPE_GEMINI_SESSION} "{sentinel_id}"',
+            deadline_seconds=120,
         )
-        if not results:
-            pytest.skip(
-                f"No events found in Splunk with sourcetype={SOURCETYPE_GEMINI_SESSION} in the last 24h. "
-                "The gemini-cli-sessions FileMonitor does not start scanning in Edge 4.16.1 after pack "
-                "migration (known issue, same as claude-code-teams). Skip is expected until Cribl Edge "
-                "fixes the FileMonitor startup bug for this input."
-            )
+        assert results, (
+            f"Gemini session sentinel '{sentinel_id}' not found in Splunk with "
+            f"sourcetype={SOURCETYPE_GEMINI_SESSION} within 120s. "
+            "Check that the Edge FileMonitor picks up ~/.gemini/tmp/**/*.json "
+            "(gemini-cli-sessions input) and that the Stream pipeline assigns "
+            "sourcetype=gemini:cli:session."
+        )
 
     def test_antigravity_brain_sourcetype(self, sentinel_antigravity_brain, splunk_client):
         """*.md files in ~/.gemini/antigravity/brain/ reach Splunk as antigravity:brain.

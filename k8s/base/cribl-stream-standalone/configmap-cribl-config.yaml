@@ -58,7 +58,9 @@ data:
               value: "(datatype||'').startsWith('gemini-cli-') || (datatype||'').startsWith('antigravity-') ? 'gemini' : 'claude'"
             - name: sourcetype
               value: >-
-                (datatype||'').startsWith('gemini-cli-') ? (datatype||'gemini-cli-unknown').replace('gemini-cli-','gemini:cli:')
+                (datatype||'').startsWith('gemini-cli-') ? (datatype === 'gemini-cli-session'
+                && (source||'').endsWith('/logs.json') ? 'gemini:cli:logs'
+                : (datatype||'gemini-cli-unknown').replace('gemini-cli-','gemini:cli:'))
                 : (datatype||'').startsWith('antigravity-') ? (datatype||'antigravity-unknown').replace('antigravity-','antigravity:')
                 : (source||'').includes('/subagents/') ? 'claude:code:subagent'
                 : (datatype||'claude-code-unknown').replace('claude-code-','claude:code:')

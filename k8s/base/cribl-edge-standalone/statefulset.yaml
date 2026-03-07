@@ -77,9 +77,16 @@ spec:
                 curl -sfL "${PACK_URL}" -o "${PACK_FILE}" || { echo "WARNING: Gemini pack download failed"; exit 0; }
                 tar --no-same-owner -xzf "${PACK_FILE}" -C /tmp default/inputs.yml
                 echo "" >> "${EDGE_DIR}/inputs.yml"
-                tail -n +2 /tmp/default/inputs.yml >> "${EDGE_DIR}/inputs.yml"
+                # Merge Gemini inputs: skip 'inputs:' header line and exclude gemini-cli-otel
+                # (gemini-cli-otel conflicts with claude-code-otel which already handles OTEL on port 4317)
+                tail -n +2 /tmp/default/inputs.yml | awk '/^  gemini-cli-otel:/{exit} {print}' >> "${EDGE_DIR}/inputs.yml"
+                # Workaround for Cribl Edge 4.16.x manual mode bug: filenames patterns must start
+                # with * or the FileMonitor silently never starts. session-*.json has * in the
+                # middle which triggers the bug. Broaden to *.json so the monitor starts;
+                # the Stream pipeline routes by source path for correct sourcetype assignment.
+                sed -i 's/"session-\*\.json"/"*.json"/' "${EDGE_DIR}/inputs.yml"
                 rm -rf /tmp/default "${PACK_FILE}"
-                echo "Gemini pack inputs merged successfully"
+                echo "Gemini pack inputs merged and patched successfully"
           volumeMounts:
             - name: claude-logs
               mountPath: /home/claude/.claude
