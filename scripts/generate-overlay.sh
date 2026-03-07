@@ -118,6 +118,14 @@ spec:
           hostPath:
             path: ${HOME_DIR}/logs/ai-jobs
             type: DirectoryOrCreate
+        - name: gemini-config
+          hostPath:
+            path: ${HOME_DIR}/.gemini
+            type: DirectoryOrCreate
+        - name: antigravity-logs
+          hostPath:
+            path: "${HOME_DIR}/Library/Application Support/Antigravity/logs"
+            type: DirectoryOrCreate
         - name: cribl-config-templates
           configMap:
             name: cribl-edge-standalone-config

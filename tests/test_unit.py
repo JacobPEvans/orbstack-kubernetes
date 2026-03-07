@@ -213,6 +213,9 @@ class TestSecurityExclusions:
             f"Edge ConfigMap should not contain path:/filenames: directives — found: {input_lines}"
         )
 
+    # Path to the Gemini pack inputs file in the sibling repo
+    _GEMINI_PACK_INPUTS_PATH = Path.home() / "git/cc-edge-gemini-antigravity-io/default/inputs.yml"
+
     @pytest.mark.parametrize("pattern", FORBIDDEN_PATTERNS)
     def test_forbidden_pattern_not_in_pack_inputs(self, pattern):
         """Pack inputs.yml must not reference sensitive patterns."""
@@ -227,3 +230,20 @@ class TestSecurityExclusions:
             if not (stripped.startswith("path:") or stripped.startswith("filenames:")):
                 continue
             assert pattern not in stripped, f"Forbidden pattern '{pattern}' found in pack inputs.yml line: {stripped}"
+
+    @pytest.mark.parametrize("pattern", FORBIDDEN_PATTERNS)
+    def test_forbidden_pattern_not_in_gemini_pack_inputs(self, pattern):
+        """Gemini pack inputs.yml must not reference sensitive patterns."""
+        if not self._GEMINI_PACK_INPUTS_PATH.exists():
+            pytest.skip(f"Gemini pack inputs.yml not found at {self._GEMINI_PACK_INPUTS_PATH}")
+
+        pack_inputs_text = self._GEMINI_PACK_INPUTS_PATH.read_text()
+
+        # Check every line that sets path or filenames values
+        for line in pack_inputs_text.splitlines():
+            stripped = line.strip()
+            if not (stripped.startswith("path:") or stripped.startswith("filenames:")):
+                continue
+            assert pattern not in stripped, (
+                f"Forbidden pattern '{pattern}' found in Gemini pack inputs.yml line: {stripped}"
+            )

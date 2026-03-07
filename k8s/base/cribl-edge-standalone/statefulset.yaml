@@ -46,6 +46,8 @@ spec:
                   optional: true
             - name: CLAUDE_HOME
               value: "/home/claude"
+            - name: GEMINI_HOME
+              value: "/home/gemini"
             - name: CRIBL_EDGE_API_HOST
               value: "0.0.0.0"
             - name: CRIBL_BEFORE_START_CMD_1
@@ -66,6 +68,18 @@ spec:
                 cp -r /tmp/default/pipelines/* "${EDGE_DIR}/pipelines/"
                 rm -rf /tmp/default "${PACK_FILE}"
                 echo "Pack config installed successfully"
+            - name: CRIBL_BEFORE_START_CMD_3
+              value: |
+                set -eu
+                PACK_URL="https://github.com/JacobPEvans/cc-edge-gemini-antigravity-io/releases/download/v0.1.0/cc-edge-gemini-antigravity-io.crbl"
+                PACK_FILE="/tmp/cc-edge-gemini-antigravity-io.crbl"
+                EDGE_DIR="${CRIBL_VOLUME_DIR}/local/edge"
+                curl -sfL "${PACK_URL}" -o "${PACK_FILE}" || { echo "WARNING: Gemini pack download failed"; exit 0; }
+                tar --no-same-owner -xzf "${PACK_FILE}" -C /tmp default/inputs.yml
+                echo "" >> "${EDGE_DIR}/inputs.yml"
+                tail -n +2 /tmp/default/inputs.yml >> "${EDGE_DIR}/inputs.yml"
+                rm -rf /tmp/default "${PACK_FILE}"
+                echo "Gemini pack inputs merged successfully"
           volumeMounts:
             - name: claude-logs
               mountPath: /home/claude/.claude
@@ -78,6 +92,12 @@ spec:
               readOnly: true
             - name: ai-job-logs
               mountPath: /var/log/ai-jobs
+              readOnly: true
+            - name: gemini-config
+              mountPath: /home/gemini/.gemini
+              readOnly: true
+            - name: antigravity-logs
+              mountPath: "/home/gemini/Library/Application Support/Antigravity/logs"
               readOnly: true
             - name: cribl-config-templates
               mountPath: /var/tmp/cribl-config
@@ -138,6 +158,14 @@ spec:
         - name: ai-job-logs
           hostPath:
             path: PLACEHOLDER_HOME_DIR/logs/ai-jobs
+            type: DirectoryOrCreate
+        - name: gemini-config
+          hostPath:
+            path: PLACEHOLDER_HOME_DIR/.gemini
+            type: DirectoryOrCreate
+        - name: antigravity-logs
+          hostPath:
+            path: "PLACEHOLDER_HOME_DIR/Library/Application Support/Antigravity/logs"
             type: DirectoryOrCreate
         - name: cribl-config-templates
           configMap:

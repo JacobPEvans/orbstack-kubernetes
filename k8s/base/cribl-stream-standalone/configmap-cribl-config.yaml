@@ -55,9 +55,13 @@ data:
         conf:
           add:
             - name: index
-              value: "'claude'"
+              value: "(datatype||'').startsWith('gemini-cli-') || (datatype||'').startsWith('antigravity-') ? 'gemini' : 'claude'"
             - name: sourcetype
-              value: "(source||'').includes('/subagents/') ? 'claude:code:subagent' : (datatype||'claude-code-unknown').replace('claude-code-','claude:code:')"
+              value: >-
+                (datatype||'').startsWith('gemini-cli-') ? (datatype||'gemini-cli-unknown').replace('gemini-cli-','gemini:cli:')
+                : (datatype||'').startsWith('antigravity-') ? (datatype||'antigravity-unknown').replace('antigravity-','antigravity:')
+                : (source||'').includes('/subagents/') ? 'claude:code:subagent'
+                : (datatype||'claude-code-unknown').replace('claude-code-','claude:code:')
             - name: source
               value: "source || 'cribl-stream'"
   pipelines-route.yml: |
