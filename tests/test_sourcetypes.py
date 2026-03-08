@@ -686,9 +686,11 @@ class TestGeminiSourcetypeSentinels:
         """*.md files in ~/.gemini/antigravity/brain/ reach Splunk as antigravity:brain.
 
         Writes a sentinel *.md into ~/.gemini/antigravity/brain/ and verifies that it reaches
-        Splunk index=gemini with sourcetype=antigravity:brain within 180s.
-        The antigravity-brain FileMonitor polls every 60s, so 90s is too tight for
-        worst-case timing (sentinel written just after a poll cycle).
+        Splunk index=gemini with sourcetype=antigravity:brain within 300s.
+        Uses a generous deadline because:
+        - The Gemini pack installs asynchronously after the Claude pack
+        - The antigravity-brain FileMonitor polls every 60s
+        - Pipeline latency (Edge → Stream → Splunk) adds another 10-30s
         """
         _, sentinel_id = sentinel_antigravity_brain
         mgmt_url, admin_password = splunk_client
@@ -696,10 +698,10 @@ class TestGeminiSourcetypeSentinels:
             mgmt_url,
             admin_password,
             f'index=gemini sourcetype={SOURCETYPE_ANTIGRAVITY_BRAIN} "{sentinel_id}"',
-            deadline_seconds=180,
+            deadline_seconds=300,
         )
         assert results, (
-            f"Sentinel '{sentinel_id}' not found in Splunk with sourcetype={SOURCETYPE_ANTIGRAVITY_BRAIN} within 180s. "
+            f"Sentinel '{sentinel_id}' not found in Splunk with sourcetype={SOURCETYPE_ANTIGRAVITY_BRAIN} within 300s. "
             "Check that the Edge FileMonitor picks up ~/.gemini/antigravity/brain/*.md and that the "
             "Stream pipeline assigns sourcetype=antigravity:brain for Antigravity brain files."
         )
