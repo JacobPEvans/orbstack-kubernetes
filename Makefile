@@ -21,7 +21,7 @@ deploy: ## Full deploy: generate overlay + create secrets + apply
 	./scripts/deploy.sh
 
 deploy-doppler: ## Deploy with Cribl secrets from Doppler (project/config in SOPS)
-	sops exec-env secrets.enc.yaml './scripts/deploy-doppler.sh'
+	@if [ -n "$$DOPPLER_TOKEN" ]; then ./scripts/deploy-doppler.sh; else sops exec-env secrets.enc.yaml './scripts/deploy-doppler.sh'; fi
 
 status: ## Show monitoring namespace status
 	kubectl --context $(CONTEXT) get all -n $(NAMESPACE)
