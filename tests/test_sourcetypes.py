@@ -571,7 +571,7 @@ class TestInputConfigurations:
             "Check that install-packs.sh installed the cc-edge-claude-code pack."
         )
         assert "/home/claude/.claude/" in output or "$CLAUDE_HOME/.claude/" in output, (
-            f"Expected '$CLAUDE_HOME/.claude/' path in pack inputs.yml, got:\n{output[:500]}"
+            f"Expected '/home/claude/.claude/' or '$CLAUDE_HOME/.claude/' path in pack inputs.yml, got:\n{output[:500]}"
         )
 
     @pytest.mark.parametrize("datatype", EXPECTED_DATATYPES)
@@ -760,7 +760,7 @@ class TestGeminiInputConfigurations:
 
     The Gemini pack is installed via REST API (install-packs.sh) and stores its
     inputs in the pack directory (default/cc-edge-gemini-antigravity/inputs.yml),
-    NOT in the edge-level local/edge/inputs.yml used by the Claude pack.
+    NOT in the (now removed) edge-level local/edge/inputs.yml.
     """
 
     # Shell command to read the Gemini pack's inputs.yml inside the Edge pod.
@@ -784,7 +784,7 @@ class TestGeminiInputConfigurations:
             "Check that install-packs.sh installed the cc-edge-gemini-antigravity pack."
         )
         assert "/home/gemini/.gemini" in output or "$GEMINI_HOME/.gemini" in output, (
-            f"Expected Gemini home path in pack inputs.yml, got:\n{output[:500]}\n"
+            f"Expected '/home/gemini/.gemini' or '$GEMINI_HOME/.gemini' path in pack inputs.yml, got:\n{output[:500]}\n"
             "The Gemini pack may not have been installed correctly — check pod startup logs."
         )
 
