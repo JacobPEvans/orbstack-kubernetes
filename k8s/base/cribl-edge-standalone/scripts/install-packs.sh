@@ -64,11 +64,15 @@ sed -i \
 # Force Cribl to commit all pending config changes and reload the worker.
 # Without this, packs installed via REST API may not be loaded by the worker
 # until the next file-change-triggered reload (which can be minutes later).
+# Note: "effective" param requires a group and fails on Edge standalone,
+# so we use version/commit (without effective) + system/settings/reload.
 if [ "$CHANGED" = "true" ]; then
   curl -sf -X POST "${API}/version/commit" -H "Authorization: Bearer ${TOKEN}" \
     -H "Content-Type: application/json" \
-    -d '{"message":"Pack installation and FileMonitor patches","effective":true}' \
+    -d '{"message":"Pack installation and FileMonitor patches"}' \
     || true
+  curl -sf -X POST "${API}/system/settings/reload" \
+    -H "Authorization: Bearer ${TOKEN}" || true
 fi
 
 echo "Pack installation complete"
