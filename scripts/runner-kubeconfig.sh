@@ -1,8 +1,7 @@
 #!/bin/bash
 # Generate a kubeconfig that works from inside an OrbStack Docker container.
-# Rewrites the server URL and disables TLS verification (the cert's SANs don't cover host.internal).
+# Uses k8s.orb.local (in the cert's SANs) instead of 127.0.0.1 so TLS verification works.
 set -e
 sed \
-  -e 's|https://127.0.0.1:26443|https://host.internal:26443|g' \
-  -e 's|certificate-authority-data:.*|insecure-skip-tls-verify: true|g' \
+  -e 's|https://127.0.0.1:26443|https://k8s.orb.local:26443|g' \
   ~/.kube/config

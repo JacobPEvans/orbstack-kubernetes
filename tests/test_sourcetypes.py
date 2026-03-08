@@ -415,7 +415,8 @@ class TestSourcetypeSentinels:
         """JSON config.json files in ~/.claude/teams/<team>/ reach Splunk as claude:code:teams.
 
         Writes a sentinel config.json into ~/.claude/teams/-test-sourcetype/ and verifies
-        that it reaches Splunk index=claude with sourcetype=claude:code:teams within 90s.
+        that it reaches Splunk index=claude with sourcetype=claude:code:teams within 180s.
+        The teams FileMonitor has a longer poll interval, so this test uses a wider deadline.
         """
         _, sentinel_id = sentinel_teams
         mgmt_url, admin_password = splunk_client
@@ -423,9 +424,10 @@ class TestSourcetypeSentinels:
             mgmt_url,
             admin_password,
             f'index=claude sourcetype={SOURCETYPE_TEAMS} "{sentinel_id}"',
+            deadline_seconds=180,
         )
         assert results, (
-            f"Sentinel '{sentinel_id}' not found in Splunk with sourcetype={SOURCETYPE_TEAMS} within 90s. "
+            f"Sentinel '{sentinel_id}' not found in Splunk with sourcetype={SOURCETYPE_TEAMS} within 180s. "
             "Check that the Edge FileMonitor is configured to monitor ~/.claude/teams/ "
             "and that the Stream pipeline assigns sourcetype=claude:code:teams."
         )

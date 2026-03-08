@@ -102,8 +102,12 @@ runner-build: ## Build the self-hosted runner Docker image
 
 runner-start: ## Start the self-hosted GitHub Actions runner
 	@scripts/runner-kubeconfig.sh > ~/.config/actions-runner-kubeconfig
+	@chmod 600 ~/.config/actions-runner-kubeconfig
 	@RUNNER_TOKEN=$$(gh api repos/JacobPEvans/kubernetes-monitoring/actions/runners/registration-token --method POST --jq '.token') && \
-	DOPPLER_TOKEN=$$(sops exec-env secrets.enc.yaml 'printf "%s" "$$DOPPLER_TOKEN"') && \
+	SOPS_ENV=$$(sops exec-env secrets.enc.yaml 'env | grep -E "^(DOPPLER_PROJECT|DOPPLER_CONFIG|DOPPLER_TOKEN|CRIBL_STREAM_PASSWORD|HEALTHCHECKS_)"') && \
+	ENV_FILE=$$(mktemp) && \
+	printf '%s\n' "$$SOPS_ENV" > "$$ENV_FILE" && \
+	chmod 600 "$$ENV_FILE" && \
 	docker run -d \
 	  --name actions-runner \
 	  --restart=always \
@@ -111,16 +115,18 @@ runner-start: ## Start the self-hosted GitHub Actions runner
 	  -e RUNNER_TOKEN="$$RUNNER_TOKEN" \
 	  -e RUNNER_NAME=orbstack-runner \
 	  -e RUNNER_LABELS="self-hosted,Linux" \
-	  -e SOPS_AGE_KEY_FILE=/home/runner/.config/sops/age/keys.txt \
-	  -e KUBECONFIG=/home/runner/.kube/config \
-	  -e DOPPLER_TOKEN="$$DOPPLER_TOKEN" \
 	  -e DEPLOY_HOME_DIR=$(HOME) \
 	  -e K8S_NODEPORT_HOST=host.internal \
 	  -e CLAUDE_HOME=$(HOME) \
+	  --env-file "$$ENV_FILE" \
 	  -v $(HOME)/.config/actions-runner-kubeconfig:/home/runner/.kube/config:ro \
-	  -v $(HOME)/.config/sops/age/keys.txt:/home/runner/.config/sops/age/keys.txt:ro \
-	  -v $(HOME)/.claude:$(HOME)/.claude:rw \
-	  kubernetes-monitoring/actions-runner:latest
+	  -v $(HOME)/.claude/projects:$(HOME)/.claude/projects:rw \
+	  -v $(HOME)/.claude/logs:$(HOME)/.claude/logs:rw \
+	  -v $(HOME)/.claude/plans:$(HOME)/.claude/plans:rw \
+	  -v $(HOME)/.claude/tasks:$(HOME)/.claude/tasks:rw \
+	  -v $(HOME)/.claude/teams:$(HOME)/.claude/teams:rw \
+	  kubernetes-monitoring/actions-runner:latest && \
+	rm -f "$$ENV_FILE"
 
 runner-stop: ## Stop and remove the self-hosted runner
 	docker stop actions-runner 2>/dev/null || true

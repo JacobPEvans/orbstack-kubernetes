@@ -81,7 +81,8 @@
     "pyyaml",
     "kubeconfig",
     "KUBECONFIG",
-    "libicu"
+    "libicu",
+    "mktemp"
   ],
   "ignorePaths": [
     "packs/",
