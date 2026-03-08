@@ -30,3 +30,6 @@ __pycache__/
 
 # direnv
 .direnv/
+
+# Local settings (personal, machine-specific — not shared)
+*.local.*
