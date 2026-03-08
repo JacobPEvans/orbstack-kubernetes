@@ -346,16 +346,15 @@ class TestClaudeCodeLogPipeline:
     def test_edge_file_monitor_config_path(self):
         """Edge pack input is configured to monitor /home/claude/.claude/projects/.
 
-        The pack is installed via CRIBL_BEFORE_START_CMD (curl + tar extract).
-        Check the pack's inputs.yml in local/edge/ for the expected path.
+        The pack is installed via REST API (install-packs.sh) and stores its
+        inputs in the pack directory (default/cc-edge-claude-code/inputs.yml).
         """
         output, returncode = kubectl_exec_no_fail(
             "statefulset/cribl-edge-standalone",
             "--",
             "sh",
             "-c",
-            "cat ${CRIBL_VOLUME_DIR:-/opt/cribl}/edge/packs/cc-edge-claude-code/default/inputs.yml "
-            "2>/dev/null || cat ${CRIBL_VOLUME_DIR:-/opt/cribl}/local/edge/inputs.yml 2>/dev/null",
+            "cat ${CRIBL_VOLUME_DIR:-/opt/cribl/data}/default/cc-edge-claude-code/inputs.yml",
         )
         assert returncode == 0, (
             f"Could not read edge inputs from pack or local config (exit {returncode}). "
