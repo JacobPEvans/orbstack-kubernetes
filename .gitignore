@@ -30,3 +30,6 @@ __pycache__/
 
 # direnv
 .direnv/
+
+# Claude Code local settings (personal, not shared)
+.claude/*.local.json
