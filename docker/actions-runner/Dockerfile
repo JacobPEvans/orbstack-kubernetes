@@ -23,8 +23,14 @@ RUN curl -fsSL "https://github.com/kubernetes-sigs/kustomize/releases/download/k
 RUN curl -fsSL "https://github.com/getsops/sops/releases/download/v${SOPS_VERSION}/sops-v${SOPS_VERSION}.linux.${TARGETARCH}" \
     -o /usr/local/bin/sops && chmod +x /usr/local/bin/sops
 
-# doppler
-RUN curl -fsSL https://cli.doppler.com/install.sh | sh
+# doppler (APT repo with GPG verification instead of curl|sh)
+RUN curl -sLf --retry 3 --tlsv1.2 --proto "=https" \
+      'https://packages.doppler.com/public/cli/gpg.DE2A7741A397C129.key' \
+      | gpg --dearmor -o /usr/share/keyrings/doppler-archive-keyring.gpg \
+    && echo "deb [signed-by=/usr/share/keyrings/doppler-archive-keyring.gpg] https://packages.doppler.com/public/cli/deb/debian any-version main" \
+      > /etc/apt/sources.list.d/doppler-cli.list \
+    && apt-get update && apt-get install -y --no-install-recommends doppler \
+    && rm -rf /var/lib/apt/lists/*
 
 # GitHub Actions runner
 RUN useradd -m -d /home/runner runner \

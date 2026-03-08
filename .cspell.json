@@ -82,7 +82,10 @@
     "kubeconfig",
     "KUBECONFIG",
     "libicu",
-    "mktemp"
+    "mktemp",
+    "tlsv",
+    "dearmor",
+    "keyrings"
   ],
   "ignorePaths": [
     "packs/",
