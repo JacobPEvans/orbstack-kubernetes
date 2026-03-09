@@ -144,14 +144,17 @@ if [ -n "${SPLUNK_LICENSE:-}" ] && [ -n "${SPLUNK_IP:-}" ] && [ -n "${SPLUNK_PAS
       -X POST --connect-timeout 10 --max-time 30 >/dev/null 2>&1 \
       && echo "  Restarting: Splunk (clearing license violations)" \
       || echo "  WARNING: Splunk restart failed (non-fatal)"
-    # Wait for Splunk to come back up (restart takes ~30-60s).
+    # Wait for Splunk to come back up. The restart API returns immediately but
+    # Splunk takes ~5-10s to begin shutting down. Sleep first to avoid hitting
+    # the still-running instance with the readiness check.
     echo "  Waiting for Splunk to restart..."
+    sleep 15
     i=0
     until curl -sk "https://${SPLUNK_IP}:8089/services/server/info" \
       -u "admin:${SPLUNK_PASSWORD}" --connect-timeout 5 --max-time 10 >/dev/null 2>&1; do
       i=$((i+1))
       if [ "$i" -gt 24 ]; then
-        echo "  WARNING: Splunk not ready after 120s (non-fatal)"
+        echo "  WARNING: Splunk not ready after 135s (non-fatal)"
         break
       fi
       sleep 5
