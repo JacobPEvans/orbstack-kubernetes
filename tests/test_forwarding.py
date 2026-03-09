@@ -212,36 +212,16 @@ class TestStreamToSplunkForwarding:
         ]
         assert not error_lines, "Cribl Stream has output errors for splunk-hec:\n" + "\n".join(error_lines[:5])
 
-    def test_cribl_stream_events_flowing(self):
-        """After sending a trace, Cribl Stream stats should show outBytes > 0.
-
-        Checks _raw stats for outBytes > 0 (bytes actually sent to an external output),
-        not just outEvents (which counts pipeline-internal routing). Since splunk-hec is
-        the only non-default output and all routes lead there, outBytes > 0 confirms
-        data was physically sent to Splunk HEC.
-
-        Polls with a deadline because _raw stats are emitted periodically (every ~10s)
-        and may not appear in logs immediately after a fresh pod restart.
-        """
-        _send_trace(str(uuid.uuid4()))
-        deadline = time.time() + 60
-        while time.time() < deadline:
-            logs = kubectl("logs", "statefulset/cribl-stream-standalone", "--tail=200")
-            flowing = find_flowing_stats(logs)
-            if flowing:
-                return
-            time.sleep(5)
-        pytest.fail(
-            "Expected _raw stats with outBytes > 0 after sending trace "
-            "(data physically sent to splunk-hec), found none within 60s."
-        )
-
     def test_otlp_events_reach_splunk_realtime(self, splunk_client):
         """Send OTLP trace and verify it appears in Splunk index=claude within 60s.
 
         End-to-end verification that the OTLP → Stream → Splunk HEC path (A4 + A7) delivers
         events to the correct Splunk index. Uses a unique trace ID as a sentinel to ensure
         we're matching our specific test event, not background traffic.
+
+        This test runs BEFORE test_cribl_stream_events_flowing to serve as a readiness
+        gate: once data reaches Splunk, the pipeline is provably live and internal stats
+        should be emitting.
         """
         trace_id = f"splunk-rt-{uuid.uuid4().hex[:12]}"
         _send_trace(trace_id)
@@ -261,6 +241,31 @@ class TestStreamToSplunkForwarding:
         pytest.fail(
             f"Trace ID '{trace_id}' not found in Splunk index=claude within 60s. "
             "The OTLP → Stream → Splunk HEC pipeline (A4 + A7) is not forwarding events to the correct index."
+        )
+
+    def test_cribl_stream_events_flowing(self):
+        """Cribl Stream stats should show outBytes > 0 (data physically sent to Splunk HEC).
+
+        Checks _raw stats for outBytes > 0 (bytes actually sent to an external output),
+        not just outEvents (which counts pipeline-internal routing). Since splunk-hec is
+        the only non-default output and all routes lead there, outBytes > 0 confirms
+        data was physically sent to Splunk HEC.
+
+        Runs AFTER test_otlp_events_reach_splunk_realtime which proves the pipeline is
+        live and data has already flowed through. Stats are emitted every ~10s, so they
+        should be present in logs by now.
+        """
+        deadline = time.time() + 60
+        while time.time() < deadline:
+            logs = kubectl("logs", "statefulset/cribl-stream-standalone", "--tail=200")
+            flowing = find_flowing_stats(logs)
+            if flowing:
+                return
+            time.sleep(5)
+        pytest.fail(
+            "Expected _raw stats with outBytes > 0 after pipeline was verified live "
+            "(test_otlp_events_reach_splunk_realtime passed), found none within 60s. "
+            "Internal stats emission may be delayed."
         )
 
 

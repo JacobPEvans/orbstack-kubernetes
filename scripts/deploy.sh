@@ -128,6 +128,44 @@ else
   echo "  SKIPPED: cribl-mcp-config (CRIBL_BASE_URL not set)"
   echo "           Set CRIBL_BASE_URL in Doppler cloud-secrets/prd, or use: make deploy-doppler"
 fi
+
+# Ensure Splunk license is current (prevents search failures from expired licenses).
+# SPLUNK_LICENSE contains the full license XML from Doppler iac-conf-mgmt/prd.
+if [ -n "${SPLUNK_LICENSE:-}" ] && [ -n "${SPLUNK_IP:-}" ] && [ -n "${SPLUNK_PASSWORD:-}" ]; then
+  if curl -sk "https://${SPLUNK_IP}:8089/services/licenser/licenses" \
+    -u "admin:${SPLUNK_PASSWORD}" \
+    -X POST -d "name=enterprise" --data-urlencode "payload=${SPLUNK_LICENSE}" \
+    --connect-timeout 10 --max-time 30 >/dev/null 2>&1; then
+    echo "  Applied: Splunk license"
+    # Restart Splunk to clear any license violation state (violations persist across
+    # license renewals until the next restart clears the warning counters).
+    curl -sk "https://${SPLUNK_IP}:8089/services/server/control/restart" \
+      -u "admin:${SPLUNK_PASSWORD}" \
+      -X POST --connect-timeout 10 --max-time 30 >/dev/null 2>&1 \
+      && echo "  Restarting: Splunk (clearing license violations)" \
+      || echo "  WARNING: Splunk restart failed (non-fatal)"
+    # Wait for Splunk to come back up. The restart API returns immediately but
+    # Splunk takes ~5-10s to begin shutting down. Sleep first to avoid hitting
+    # the still-running instance with the readiness check.
+    echo "  Waiting for Splunk to restart..."
+    sleep 15
+    i=0
+    until curl -sk "https://${SPLUNK_IP}:8089/services/server/info" \
+      -u "admin:${SPLUNK_PASSWORD}" --connect-timeout 5 --max-time 10 >/dev/null 2>&1; do
+      i=$((i+1))
+      if [ "$i" -gt 24 ]; then
+        echo "  WARNING: Splunk not ready after 135s (non-fatal)"
+        break
+      fi
+      sleep 5
+    done
+    [ "$i" -le 24 ] && echo "  Splunk restarted successfully"
+  else
+    echo "  WARNING: Splunk license install failed (non-fatal)"
+  fi
+else
+  echo "  SKIPPED: Splunk license (SPLUNK_LICENSE, SPLUNK_NETWORK, or SPLUNK_PASSWORD not set)"
+fi
 echo ""
 
 # Step 3: Apply kustomize

@@ -612,8 +612,14 @@ def sentinel_antigravity_brain():
 
     The Gemini pack's antigravity-brain input monitors $GEMINI_HOME/.gemini/antigravity/brain/
     for *.md files. Yields (path, sentinel_id). Cleans up after the test.
+
+    In CI, the runner is a Docker container where Path.home() = /home/runner (local FS),
+    but hostPath volumes point to the macOS host via DEPLOY_HOME_DIR. Use DEPLOY_HOME_DIR
+    to write to the correct filesystem, matching the pattern used by CLAUDE_HOME in
+    test_forwarding.py.
     """
-    brain_dir = Path.home() / ".gemini" / "antigravity" / "brain"
+    home = Path(os.environ.get("DEPLOY_HOME_DIR", str(Path.home())))
+    brain_dir = home / ".gemini" / "antigravity" / "brain"
     brain_dir.mkdir(parents=True, exist_ok=True)
     sentinel_id = f"SRCTYPE_ANTIGRAVITY_BRAIN_{uuid.uuid4().hex[:12]}"
     sentinel_file = brain_dir / f"sentinel-{sentinel_id}.md"
@@ -635,7 +641,94 @@ class TestGeminiSourcetypeSentinels:
     """Verify Gemini sourcetypes are correctly assigned end-to-end: Host FS → Edge → Stream → Splunk.
 
     Uses safe write paths only (tmp/, antigravity/brain/) to avoid corrupting live Gemini data.
+    Tests are ordered as readiness gates: mount checks → config checks → FileMonitor detection → Splunk.
     """
+
+    # Shell commands for pod-level verification.
+    _GEMINI_PACK_INPUTS_CMD = "cat ${CRIBL_VOLUME_DIR:-/opt/cribl/data}/default/cc-edge-gemini-antigravity/inputs.yml"
+
+    def test_gemini_config_mount_accessible(self):
+        """Edge pod can access host ~/.gemini/ via the hostPath volume mount."""
+        _, returncode = kubectl_exec_no_fail(
+            "statefulset/cribl-edge-standalone",
+            "--",
+            "ls",
+            "/home/gemini/.gemini/",
+        )
+        assert returncode == 0, (
+            "hostPath mount /home/gemini/.gemini/ not accessible in edge pod "
+            f"(exit {returncode}). Check the gemini-config volume mount."
+        )
+
+    def test_brain_input_config_exists(self):
+        """Gemini pack inputs.yml should contain the antigravity-brain input with correct path."""
+        output, returncode = kubectl_exec_no_fail(
+            "statefulset/cribl-edge-standalone",
+            "--",
+            "sh",
+            "-c",
+            self._GEMINI_PACK_INPUTS_CMD,
+        )
+        assert returncode == 0, (
+            f"Could not read Gemini pack inputs.yml (exit {returncode}). "
+            "Check that install-packs.sh installed the cc-edge-gemini-antigravity pack."
+        )
+        assert "antigravity-brain" in output, (
+            f"'antigravity-brain' input not found in Gemini pack inputs.yml.\n{output[:500]}"
+        )
+        assert "/home/gemini/.gemini/antigravity/brain" in output, (
+            "antigravity-brain input path not resolved to /home/gemini/.gemini/antigravity/brain. "
+            "The $GEMINI_HOME sed patch in CMD_1 may not have run. "
+            f"inputs.yml excerpt:\n{output[:500]}"
+        )
+
+    def test_brain_sentinel_visible_in_pod(self, sentinel_antigravity_brain):
+        """A sentinel *.md file written to host ~/.gemini/antigravity/brain/ is readable in the edge pod.
+
+        Brief retry (10s) handles filesystem propagation latency.
+        """
+        sentinel_path, sentinel_id = sentinel_antigravity_brain
+        pod_path = f"/home/gemini/.gemini/antigravity/brain/{sentinel_path.name}"
+        output = ""
+        returncode = -1
+        for attempt in range(5):
+            output, returncode = kubectl_exec_no_fail(
+                "statefulset/cribl-edge-standalone",
+                "--",
+                "cat",
+                pod_path,
+            )
+            if returncode == 0:
+                break
+            if attempt < 4:
+                time.sleep(2)
+        assert returncode == 0, (
+            f"Sentinel file not readable inside edge pod at {pod_path} after 10s "
+            f"(exit {returncode}). Host path: {sentinel_path} (exists={sentinel_path.exists()}). "
+            "Check that DEPLOY_HOME_DIR matches the hostPath volume base and the "
+            "runner Docker container mounts ~/.gemini/."
+        )
+        assert sentinel_id in output, f"Sentinel ID {sentinel_id!r} not found in pod file content: {output!r}"
+
+    def test_brain_file_monitor_active(self):
+        """Edge FileMonitor should be actively scanning Gemini pack inputs."""
+        logs = kubectl("logs", "statefulset/cribl-edge-standalone")
+        # Look for any collector activity related to the gemini paths.
+        has_gemini_collectors = "antigravity" in logs.lower() and "FileMonitor collector added" in logs
+        if not has_gemini_collectors:
+            # Check if the antigravity-brain input is at least configured.
+            output, _ = kubectl_exec_no_fail(
+                "statefulset/cribl-edge-standalone",
+                "--",
+                "sh",
+                "-c",
+                self._GEMINI_PACK_INPUTS_CMD,
+            )
+            pytest.fail(
+                "Edge FileMonitor has no 'collector added' entries referencing antigravity paths. "
+                "The Gemini pack's brain input may be disabled or the path may not exist. "
+                f"Gemini pack inputs:\n{output[:500]}"
+            )
 
     def test_gemini_session_sourcetype(self, splunk_client):
         """Real Gemini CLI session reaches Splunk as gemini:cli:session.
@@ -686,11 +779,14 @@ class TestGeminiSourcetypeSentinels:
         """*.md files in ~/.gemini/antigravity/brain/ reach Splunk as antigravity:brain.
 
         Writes a sentinel *.md into ~/.gemini/antigravity/brain/ and verifies that it reaches
-        Splunk index=gemini with sourcetype=antigravity:brain within 300s.
-        Uses a generous deadline because:
-        - The Gemini pack installs asynchronously after the Claude pack
-        - The antigravity-brain FileMonitor polls every 60s
-        - Pipeline latency (Edge → Stream → Splunk) adds another 10-30s
+        Splunk index=gemini with sourcetype=antigravity:brain within 90s.
+
+        Precondition gates (run earlier in this class) already verified:
+        - The gemini-config hostPath mount is accessible
+        - The antigravity-brain input config exists with resolved paths
+        - The sentinel file is visible inside the edge pod
+        - The FileMonitor is actively scanning the brain path
+        So if this test fails, the issue is in Stream routing or Splunk indexing.
         """
         _, sentinel_id = sentinel_antigravity_brain
         mgmt_url, admin_password = splunk_client
@@ -698,12 +794,13 @@ class TestGeminiSourcetypeSentinels:
             mgmt_url,
             admin_password,
             f'index=gemini sourcetype={SOURCETYPE_ANTIGRAVITY_BRAIN} "{sentinel_id}"',
-            deadline_seconds=300,
+            deadline_seconds=90,
         )
         assert results, (
-            f"Sentinel '{sentinel_id}' not found in Splunk with sourcetype={SOURCETYPE_ANTIGRAVITY_BRAIN} within 300s. "
-            "Check that the Edge FileMonitor picks up ~/.gemini/antigravity/brain/*.md and that the "
-            "Stream pipeline assigns sourcetype=antigravity:brain for Antigravity brain files."
+            f"Sentinel '{sentinel_id}' not found in Splunk with sourcetype={SOURCETYPE_ANTIGRAVITY_BRAIN} within 90s. "
+            "All precondition gates passed (mount accessible, config resolved, file visible in pod, "
+            "FileMonitor active), so the issue is likely in the Stream pipeline routing or Splunk index. "
+            "Check the Stream pipeline's sourcetype assignment and that index=gemini exists in Splunk."
         )
 
 

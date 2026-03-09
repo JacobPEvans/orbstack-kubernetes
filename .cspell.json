@@ -85,7 +85,10 @@
     "mktemp",
     "tlsv",
     "dearmor",
-    "keyrings"
+    "keyrings",
+    "urlencode",
+    "poolsize",
+    "virtiofs"
   ],
   "ignorePaths": [
     "packs/",
