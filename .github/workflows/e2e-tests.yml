@@ -22,7 +22,19 @@ jobs:
       - uses: actions/checkout@v6
       - name: Install test dependencies
         run: make test-setup
+      - name: Mask secrets
+        uses: JacobPEvans/.github/actions/mask-secrets@main
+        with:
+          sops-file: secrets.enc.yaml
       - name: Deploy to OrbStack
         run: make deploy-doppler
+        env:
+          DOPPLER_TOKEN: ${{ secrets.DOPPLER_TOKEN }}
+      - name: Mask cluster IPs
+        uses: JacobPEvans/.github/actions/mask-secrets@main
+        with:
+          mask-pod-ips: 'true'
+          kubernetes-namespace: monitoring
+          kubernetes-context: orbstack
       - name: Run E2E test suite
         run: make test-e2e
