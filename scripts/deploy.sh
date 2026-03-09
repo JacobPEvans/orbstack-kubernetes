@@ -128,6 +128,19 @@ else
   echo "  SKIPPED: cribl-mcp-config (CRIBL_BASE_URL not set)"
   echo "           Set CRIBL_BASE_URL in Doppler cloud-secrets/prd, or use: make deploy-doppler"
 fi
+
+# Ensure Splunk license is current (prevents search failures from expired licenses).
+# SPLUNK_LICENSE contains the full license XML from Doppler iac-conf-mgmt/prd.
+if [ -n "${SPLUNK_LICENSE:-}" ] && [ -n "${SPLUNK_IP:-}" ] && [ -n "${SPLUNK_PASSWORD:-}" ]; then
+  curl -sk "https://${SPLUNK_IP}:8089/services/licenser/licenses" \
+    -u "admin:${SPLUNK_PASSWORD}" \
+    -X POST -d "name=enterprise" --data-urlencode "payload=${SPLUNK_LICENSE}" \
+    --connect-timeout 10 --max-time 30 >/dev/null 2>&1 \
+    && echo "  Applied: Splunk license" \
+    || echo "  WARNING: Splunk license install failed (non-fatal)"
+else
+  echo "  SKIPPED: Splunk license (SPLUNK_LICENSE, SPLUNK_NETWORK, or SPLUNK_PASSWORD not set)"
+fi
 echo ""
 
 # Step 3: Apply kustomize
