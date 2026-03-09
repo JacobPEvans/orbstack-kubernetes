@@ -41,6 +41,8 @@ if ! curl -sf -H "Authorization: Bearer ${TOKEN}" "${API}/packs/cc-edge-gemini-a
     -H "Content-Type: application/json" \
     -d "{\"name\":\"cc-edge-gemini\",\"source\":\"${PACK_GEMINI}\"}" \
     || echo "WARNING: Gemini pack install failed"
+  # Wait for Cribl worker to finish reloading after Gemini pack install.
+  sleep 10
 fi
 
 # Edge 4.16.x bug: FileMonitor ignores filename patterns not starting with '*'.
