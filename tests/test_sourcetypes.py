@@ -612,8 +612,14 @@ def sentinel_antigravity_brain():
 
     The Gemini pack's antigravity-brain input monitors $GEMINI_HOME/.gemini/antigravity/brain/
     for *.md files. Yields (path, sentinel_id). Cleans up after the test.
+
+    In CI, the runner is a Docker container where Path.home() = /home/runner (local FS),
+    but hostPath volumes point to the macOS host via DEPLOY_HOME_DIR. Use DEPLOY_HOME_DIR
+    to write to the correct filesystem, matching the pattern used by CLAUDE_HOME in
+    test_forwarding.py.
     """
-    brain_dir = Path.home() / ".gemini" / "antigravity" / "brain"
+    home = Path(os.environ.get("DEPLOY_HOME_DIR", str(Path.home())))
+    brain_dir = home / ".gemini" / "antigravity" / "brain"
     brain_dir.mkdir(parents=True, exist_ok=True)
     sentinel_id = f"SRCTYPE_ANTIGRAVITY_BRAIN_{uuid.uuid4().hex[:12]}"
     sentinel_file = brain_dir / f"sentinel-{sentinel_id}.md"
@@ -679,15 +685,13 @@ class TestGeminiSourcetypeSentinels:
     def test_brain_sentinel_visible_in_pod(self, sentinel_antigravity_brain):
         """A sentinel *.md file written to host ~/.gemini/antigravity/brain/ is readable in the edge pod.
 
-        OrbStack's virtiofs has a brief propagation delay for newly created directory
-        chains. Since ~/.gemini/antigravity/brain/ may not exist until the fixture
-        creates it, we allow up to 30s for the file to appear inside the pod.
+        Brief retry (10s) handles filesystem propagation latency.
         """
         sentinel_path, sentinel_id = sentinel_antigravity_brain
         pod_path = f"/home/gemini/.gemini/antigravity/brain/{sentinel_path.name}"
         output = ""
         returncode = -1
-        for attempt in range(15):
+        for attempt in range(5):
             output, returncode = kubectl_exec_no_fail(
                 "statefulset/cribl-edge-standalone",
                 "--",
@@ -696,28 +700,14 @@ class TestGeminiSourcetypeSentinels:
             )
             if returncode == 0:
                 break
-            if attempt < 14:
+            if attempt < 4:
                 time.sleep(2)
-        if returncode != 0:
-            # Collect diagnostics to pinpoint where the path breaks.
-            diag_parts = [
-                f"Sentinel file not readable inside edge pod at {pod_path} after 30s.",
-                f"Host sentinel path: {sentinel_path} (exists={sentinel_path.exists()})",
-            ]
-            for subpath in [
-                "/home/gemini/.gemini/",
-                "/home/gemini/.gemini/antigravity/",
-                "/home/gemini/.gemini/antigravity/brain/",
-            ]:
-                ls_out, ls_rc = kubectl_exec_no_fail(
-                    "statefulset/cribl-edge-standalone",
-                    "--",
-                    "ls",
-                    "-la",
-                    subpath,
-                )
-                diag_parts.append(f"ls {subpath} (rc={ls_rc}):\n{ls_out[:300]}")
-            pytest.fail("\n".join(diag_parts))
+        assert returncode == 0, (
+            f"Sentinel file not readable inside edge pod at {pod_path} after 10s "
+            f"(exit {returncode}). Host path: {sentinel_path} (exists={sentinel_path.exists()}). "
+            "Check that DEPLOY_HOME_DIR matches the hostPath volume base and the "
+            "runner Docker container mounts ~/.gemini/."
+        )
         assert sentinel_id in output, f"Sentinel ID {sentinel_id!r} not found in pod file content: {output!r}"
 
     def test_brain_file_monitor_active(self):

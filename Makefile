@@ -126,6 +126,7 @@ runner-start: runner-stop ## Start the self-hosted GitHub Actions runner
 	  -v $(HOME)/.claude/plans:$(HOME)/.claude/plans:rw \
 	  -v $(HOME)/.claude/tasks:$(HOME)/.claude/tasks:rw \
 	  -v $(HOME)/.claude/teams:$(HOME)/.claude/teams:rw \
+	  -v $(HOME)/.gemini:$(HOME)/.gemini:rw \
 	  kubernetes-monitoring/actions-runner:latest && \
 	rm -f "$$ENV_FILE"
 
