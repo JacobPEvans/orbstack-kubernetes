@@ -18,6 +18,20 @@ TOKEN=$(curl -sf -X POST "${API}/auth/login" \
   | grep -o '"token":"[^"]*"' | cut -d'"' -f4)
 [ -z "$TOKEN" ] && echo "WARNING: Auth failed, skipping pack install" && exit 0
 
+# wait_and_reauth: called after each pack install triggers a worker reload.
+# Health-check runs FIRST (API may be down during reload), then re-acquires
+# the JWT (reload invalidates sessions), then guards against empty token.
+wait_and_reauth() {
+  j=0; until curl -sf "${API}/health" >/dev/null 2>&1; do
+    j=$((j+1)); [ "$j" -gt 12 ] && echo "WARNING: API did not recover after reload, proceeding anyway" && break; sleep 5
+  done
+  TOKEN=$(curl -sf -X POST "${API}/auth/login" \
+    -H "Content-Type: application/json" \
+    -d "{\"username\":\"admin\",\"password\":\"${CRIBL_EDGE_PASSWORD:-admin}\"}" \
+    | grep -o '"token":"[^"]*"' | cut -d'"' -f4) || TOKEN=""
+  [ -z "$TOKEN" ] && echo "WARNING: Re-auth failed after reload, skipping remaining steps" && exit 0
+}
+
 PACK_CLAUDE="https://github.com/JacobPEvans/cc-edge-claude-code-otel/releases/download/v1.2.4/cc-edge-claude-code-otel.crbl"
 PACK_GEMINI="https://github.com/JacobPEvans/cc-edge-gemini-antigravity-io/releases/download/v1.1.1/cc-edge-gemini-antigravity-io.crbl"
 
@@ -28,21 +42,25 @@ PACK_GEMINI="https://github.com/JacobPEvans/cc-edge-gemini-antigravity-io/releas
 # until the next file-change-triggered reload (which can be minutes later).
 if ! curl -sf -H "Authorization: Bearer ${TOKEN}" "${API}/packs/cc-edge-claude-code" >/dev/null 2>&1; then
   curl -sf -X POST "${API}/packs" -H "Authorization: Bearer ${TOKEN}" \
+    --retry 3 --retry-delay 10 --retry-all-errors --connect-timeout 30 --max-time 120 \
     -H "Content-Type: application/json" \
     -d "{\"name\":\"cc-edge-claude-code\",\"source\":\"${PACK_CLAUDE}\"}" \
     || echo "WARNING: Claude pack install failed"
   # Wait for Cribl worker to finish reloading after Claude pack install.
   sleep 10
+  wait_and_reauth
 fi
 
 # Cribl auto-disables gemini-cli-otel (port 4317 conflict with claude-code-otel).
 if ! curl -sf -H "Authorization: Bearer ${TOKEN}" "${API}/packs/cc-edge-gemini-antigravity" >/dev/null 2>&1; then
   curl -sf -X POST "${API}/packs" -H "Authorization: Bearer ${TOKEN}" \
+    --retry 3 --retry-delay 10 --retry-all-errors --connect-timeout 30 --max-time 120 \
     -H "Content-Type: application/json" \
-    -d "{\"name\":\"cc-edge-gemini\",\"source\":\"${PACK_GEMINI}\"}" \
+    -d "{\"name\":\"cc-edge-gemini-antigravity\",\"source\":\"${PACK_GEMINI}\"}" \
     || echo "WARNING: Gemini pack install failed"
   # Wait for Cribl worker to finish reloading after Gemini pack install.
   sleep 10
+  wait_and_reauth
 fi
 
 # Force Cribl to commit all pending config changes and reload the worker.
