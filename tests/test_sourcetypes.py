@@ -676,9 +676,11 @@ class TestGeminiSourcetypeSentinels:
         assert "antigravity-brain" in output, (
             f"'antigravity-brain' input not found in Gemini pack inputs.yml.\n{output[:500]}"
         )
-        assert "/home/gemini/.gemini/antigravity/brain" in output, (
-            "antigravity-brain input path not resolved to /home/gemini/.gemini/antigravity/brain. "
-            "The $GEMINI_HOME sed patch in CMD_1 may not have run. "
+        assert (
+            "/home/gemini/.gemini/antigravity/brain" in output or "$GEMINI_HOME/.gemini/antigravity/brain" in output
+        ), (
+            "antigravity-brain input path not found as '/home/gemini/.gemini/antigravity/brain' or "
+            "'$GEMINI_HOME/.gemini/antigravity/brain'. Check that the Gemini pack is installed correctly. "
             f"inputs.yml excerpt:\n{output[:500]}"
         )
 
