@@ -23,12 +23,12 @@ TOKEN=$(curl -sf -X POST "${API}/auth/login" \
 # the JWT (reload invalidates sessions), then guards against empty token.
 wait_and_reauth() {
   j=0; until curl -sf "${API}/health" >/dev/null 2>&1; do
-    j=$((j+1)); [ "$j" -gt 12 ] && break; sleep 5
+    j=$((j+1)); [ "$j" -gt 12 ] && echo "WARNING: API did not recover after reload, proceeding anyway" && break; sleep 5
   done
   TOKEN=$(curl -sf -X POST "${API}/auth/login" \
     -H "Content-Type: application/json" \
     -d "{\"username\":\"admin\",\"password\":\"${CRIBL_EDGE_PASSWORD:-admin}\"}" \
-    | grep -o '"token":"[^"]*"' | cut -d'"' -f4)
+    | grep -o '"token":"[^"]*"' | cut -d'"' -f4) || TOKEN=""
   [ -z "$TOKEN" ] && echo "WARNING: Re-auth failed after reload, skipping remaining steps" && exit 0
 }
 
@@ -56,7 +56,7 @@ if ! curl -sf -H "Authorization: Bearer ${TOKEN}" "${API}/packs/cc-edge-gemini-a
   curl -sf -X POST "${API}/packs" -H "Authorization: Bearer ${TOKEN}" \
     --retry 3 --retry-delay 10 --retry-all-errors --connect-timeout 30 --max-time 120 \
     -H "Content-Type: application/json" \
-    -d "{\"name\":\"cc-edge-gemini\",\"source\":\"${PACK_GEMINI}\"}" \
+    -d "{\"name\":\"cc-edge-gemini-antigravity\",\"source\":\"${PACK_GEMINI}\"}" \
     || echo "WARNING: Gemini pack install failed"
   # Wait for Cribl worker to finish reloading after Gemini pack install.
   sleep 10
