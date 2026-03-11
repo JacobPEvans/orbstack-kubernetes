@@ -57,11 +57,13 @@ class TestCollectorToStreamForwarding:
         log lines (lines starting with a timestamp and log level marker).
         """
         test_id = str(uuid.uuid4())
+        test_start = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
         _send_trace(test_id)
         time.sleep(5)  # Allow time for forwarding attempt
-        # Use --since to scope log inspection to this test's window only.
-        # This avoids false failures from transient errors during pod startup/restart.
-        logs = kubectl("logs", "statefulset/otel-collector", "--since=30s")
+        # Use --since-time tied to this test's start timestamp so only logs
+        # produced during this test run are inspected. This prevents false
+        # failures from pod startup/restart errors that predate the send.
+        logs = kubectl("logs", "statefulset/otel-collector", f"--since-time={test_start}")
         # OTEL collector log format: TIMESTAMP\tLEVEL\tFILE\tMESSAGE\tJSON
         # Only lines with \terror\t are error-level operational log entries.
         # Info-level retry lines (e.g. "Exporting failed. Will retry...") are
