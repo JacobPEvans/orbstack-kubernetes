@@ -28,8 +28,6 @@ jobs:
           sops-file: secrets.enc.yaml
       - name: Deploy to OrbStack
         run: make deploy-doppler
-        env:
-          DOPPLER_TOKEN: ${{ secrets.DOPPLER_TOKEN }}
       - name: Mask cluster IPs
         uses: JacobPEvans/.github/actions/mask-secrets@main
         with:

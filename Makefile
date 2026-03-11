@@ -120,6 +120,7 @@ runner-start: runner-stop ## Start the self-hosted GitHub Actions runner
 	  -e K8S_NODEPORT_HOST=host.internal \
 	  -e CLAUDE_HOME=$(HOME) \
 	  --env-file "$$ENV_FILE" \
+	  -v $(HOME)/.config/sops/age:/home/runner/.config/sops/age:ro \
 	  -v $(HOME)/.config/actions-runner-kubeconfig:/home/runner/.kube/config:ro \
 	  -v $(HOME)/.claude/projects:$(HOME)/.claude/projects:rw \
 	  -v $(HOME)/.claude/logs:$(HOME)/.claude/logs:rw \

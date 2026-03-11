@@ -4,6 +4,7 @@ ARG RUNNER_VERSION=2.332.0
 ARG KUBECTL_VERSION=1.35.2
 ARG SOPS_VERSION=3.12.1
 ARG KUSTOMIZE_VERSION=5.8.1
+ARG YQ_VERSION=4.44.1
 ARG TARGETARCH=arm64
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -22,6 +23,10 @@ RUN curl -fsSL "https://github.com/kubernetes-sigs/kustomize/releases/download/k
 # sops
 RUN curl -fsSL "https://github.com/getsops/sops/releases/download/v${SOPS_VERSION}/sops-v${SOPS_VERSION}.linux.${TARGETARCH}" \
     -o /usr/local/bin/sops && chmod +x /usr/local/bin/sops
+
+# yq (YAML processor, required by mask-secrets composite action)
+RUN curl -fsSL "https://github.com/mikefarah/yq/releases/download/v${YQ_VERSION}/yq_linux_${TARGETARCH}" \
+    -o /usr/local/bin/yq && chmod +x /usr/local/bin/yq
 
 # doppler (APT repo with GPG verification instead of curl|sh)
 RUN curl -sLf --retry 3 --tlsv1.2 --proto "=https" \
