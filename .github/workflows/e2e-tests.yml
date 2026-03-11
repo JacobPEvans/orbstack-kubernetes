@@ -34,5 +34,29 @@ jobs:
           mask-pod-ips: 'true'
           kubernetes-namespace: monitoring
           kubernetes-context: orbstack
+      - name: Wait for pipeline stabilization
+        run: |
+          echo "Waiting for OTEL pipeline to stabilize after deploy..."
+          # Send a throwaway trace to prime the gRPC connection
+          python3 -c "
+          from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
+          from opentelemetry.sdk.trace import TracerProvider
+          from opentelemetry.sdk.trace.export import SimpleSpanProcessor
+          e = OTLPSpanExporter(endpoint='host.internal:30317', insecure=True)
+          p = TracerProvider()
+          p.add_span_processor(SimpleSpanProcessor(e))
+          t = p.get_tracer('warmup')
+          with t.start_as_current_span('pipeline-warmup'): pass
+          p.shutdown()
+          " || true
+          # Wait for collector to successfully export (confirms gRPC connection is live)
+          for i in $(seq 1 12); do
+            if kubectl --context orbstack -n monitoring logs statefulset/otel-collector --since=30s 2>/dev/null | grep -q 'Finished exporting'; then
+              echo "Pipeline stabilized after $((i * 5))s"
+              break
+            fi
+            [ "$i" -eq 12 ] && echo "WARNING: Pipeline not confirmed stable after 60s, proceeding anyway"
+            sleep 5
+          done
       - name: Run E2E test suite
         run: make test-e2e
