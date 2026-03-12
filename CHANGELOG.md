@@ -2,7 +2,6 @@
 
 ## [1.1.0](https://github.com/JacobPEvans/kubernetes-monitoring/compare/v1.0.0...v1.1.0) (2026-03-11)
 
-
 ### Features
 
 * add Cribl MCP server to monitoring stack ([#33](https://github.com/JacobPEvans/kubernetes-monitoring/issues/33)) ([f5c1835](https://github.com/JacobPEvans/kubernetes-monitoring/commit/f5c1835eee6e4848a0b38837f5dfc0520f342431))
@@ -25,7 +24,6 @@
 * Renovate trusted-publisher allowlist with Tier 1 + Tier 2 rules ([#30](https://github.com/JacobPEvans/kubernetes-monitoring/issues/30)) ([c74a839](https://github.com/JacobPEvans/kubernetes-monitoring/commit/c74a8393baa047d3d4fea86163a03c231b68dcf4))
 * **renovate:** extend shared preset, remove duplicated rules ([d8dab9e](https://github.com/JacobPEvans/kubernetes-monitoring/commit/d8dab9e0e603a506d9cc088141e5d53c1d4b538a))
 * split Cribl Stream into standalone + managed, fix OOM ([#6](https://github.com/JacobPEvans/kubernetes-monitoring/issues/6)) ([7287f7e](https://github.com/JacobPEvans/kubernetes-monitoring/commit/7287f7e306ed213579d2eba3a07bbec72e7a13eb))
-
 
 ### Bug Fixes
 
