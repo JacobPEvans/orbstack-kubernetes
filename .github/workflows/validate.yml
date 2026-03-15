@@ -11,17 +11,6 @@ on:
       - 'docker/**'
       - 'tests/**'
       - 'pyproject.toml'
-  pull_request:
-    branches: [main]
-    paths:
-      - 'k8s/**'
-      - 'scripts/**'
-      - 'Makefile'
-      - '.pre-commit-config.yaml'
-      - '.yamllint.yml'
-      - 'docker/**'
-      - 'tests/**'
-      - 'pyproject.toml'
 
 permissions:
   contents: read
