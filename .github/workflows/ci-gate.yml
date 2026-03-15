@@ -1,0 +1,235 @@
+---
+# CI Gate - Conditional Required Checks
+#
+# FRAMEWORK: Merge Gatekeeper Pattern
+# ====================================
+# Solves: "Required checks that only run when relevant files change"
+#
+# Problem: GitHub branch protection only supports "always required" or "not required"
+#          Path-filtered workflows that don't run = pending forever = blocks merge
+#
+# Solution: Single workflow that:
+# 1. Always triggers on ALL PRs (no path filters at workflow level)
+# 2. Detects which file categories changed
+# 3. Runs jobs conditionally (skipped = success)
+# 4. Final "Merge Gate" job aggregates all results
+#
+# Branch Protection: Set ONLY "Merge Gate" as required check
+#
+# Adding New Checks:
+# 1. Add filter pattern under `changes.steps.filter.with.filters`
+# 2. Add inline job with appropriate `if:` condition
+# 3. Add job name to `gate.needs` array and `allowed-skips`
+
+name: CI Gate
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  # ==========================================================================
+  # CHANGE DETECTION
+  # ==========================================================================
+  changes:
+    name: Detect Changes
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      validate: ${{ steps.filter.outputs.validate }}
+      e2e: ${{ steps.filter.outputs.e2e }}
+      is-release-please: ${{ steps.release-please.outputs.result }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: dorny/paths-filter@v4
+        id: filter
+        with:
+          filters: |
+            validate:
+              - 'k8s/**'
+              - 'scripts/**'
+              - 'docker/**'
+              - 'Makefile'
+              - '.pre-commit-config.yaml'
+              - '.yamllint.yml'
+              - 'tests/**'
+              - 'pyproject.toml'
+            e2e:
+              - 'k8s/**'
+              - 'scripts/**'
+              - 'Makefile'
+              - 'tests/**'
+      - name: Detect release-please PR
+        id: release-please
+        env:
+          HEAD_REF: ${{ github.head_ref }}
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+        run: |
+          if [[ "$HEAD_REF" == release-please--branches--* && "$PR_AUTHOR" == "github-actions[bot]" ]]; then
+            echo "result=true" >> $GITHUB_OUTPUT
+          else
+            echo "result=false" >> $GITHUB_OUTPUT
+          fi
+
+  # ==========================================================================
+  # CONDITIONAL CHECKS (inline jobs)
+  # ==========================================================================
+  validate:
+    name: Validate (kubeconform + yamllint)
+    needs: changes
+    if: needs.changes.outputs.validate == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Install kubeconform
+        uses: bmuschko/setup-kubeconform@v1
+      - name: Kustomize build
+        run: kubectl kustomize k8s/base/ > /tmp/rendered.yaml
+      - name: Validate Kubernetes schemas
+        run: kubeconform -strict -summary -output text /tmp/rendered.yaml
+      - name: Lint YAML
+        run: |
+          pip install yamllint
+          yamllint k8s/base/
+
+  pre-commit:
+    name: Pre-commit
+    needs: changes
+    if: needs.changes.outputs.validate == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.14'
+      - name: Install kubeconform
+        uses: bmuschko/setup-kubeconform@v1
+      - uses: pre-commit/action@v3.0.1
+
+  unit-tests:
+    name: Unit tests (no cluster required)
+    needs: changes
+    if: needs.changes.outputs.validate == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.14'
+      - name: Install test dependencies
+        run: make test-setup
+      - name: Run unit tests
+        run: make test-unit
+
+  scan-dockerfiles:
+    name: Scan Dockerfiles for vulnerabilities
+    needs: changes
+    if: needs.changes.outputs.validate == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Scan claude-code Dockerfile
+        uses: aquasecurity/trivy-action@0.35.0
+        with:
+          scan-type: config
+          scan-ref: docker/claude-code/
+          severity: HIGH,CRITICAL
+          exit-code: '1'
+      - name: Scan gemini-cli Dockerfile
+        uses: aquasecurity/trivy-action@0.35.0
+        with:
+          scan-type: config
+          scan-ref: docker/gemini-cli/
+          severity: HIGH,CRITICAL
+          exit-code: '1'
+
+  test-deps:
+    name: Verify test dependencies
+    needs: changes
+    if: needs.changes.outputs.validate == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.14'
+      - name: Install test dependencies
+        run: pip install -r tests/requirements.txt
+      - name: Verify imports
+        run: |
+          python -c "
+          from opentelemetry.sdk.trace import TracerProvider
+          from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
+          from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
+          import pytest
+          print('OK')
+          "
+
+  e2e:
+    name: Deploy and run E2E tests
+    needs: changes
+    if: needs.changes.outputs.e2e == 'true' && needs.changes.outputs.is-release-please != 'true'
+    runs-on: [self-hosted, Linux]
+    steps:
+      - uses: actions/checkout@v6
+      - name: Install test dependencies
+        run: make test-setup
+      - name: Mask secrets
+        uses: JacobPEvans/.github/actions/mask-secrets@main
+        with:
+          sops-file: secrets.enc.yaml
+      - name: Deploy to OrbStack
+        run: make deploy-doppler
+      - name: Mask cluster IPs
+        uses: JacobPEvans/.github/actions/mask-secrets@main
+        with:
+          mask-pod-ips: 'true'
+          kubernetes-namespace: monitoring
+          kubernetes-context: orbstack
+      - name: Wait for pipeline stabilization
+        run: |
+          echo "Waiting for OTEL pipeline to stabilize after deploy..."
+          # Send a throwaway trace to prime the gRPC connection
+          python3 scripts/otel-warmup.py || true
+          # Wait for collector to successfully export (confirms gRPC connection is live)
+          # "TracesExporter" is the debug exporter log line at normal verbosity confirming a batch was sent
+          for i in $(seq 1 12); do
+            if kubectl --context orbstack -n monitoring logs statefulset/otel-collector --since=2m 2>/dev/null | grep -q 'TracesExporter'; then
+              echo "Pipeline stabilized after $((i * 5))s"
+              break
+            fi
+            if [ "$i" -eq 12 ]; then
+              echo "WARNING: Pipeline not confirmed stable after 60s, proceeding anyway"
+              break
+            fi
+            sleep 5
+          done
+      - name: Run E2E test suite
+        run: make test-e2e
+
+  # ==========================================================================
+  # MERGE GATE - The ONLY required check in branch protection
+  # ==========================================================================
+  gate:
+    name: Merge Gate
+    needs: [changes, validate, pre-commit, unit-tests, scan-dockerfiles, test-deps, e2e]
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check all results
+        uses: re-actors/alls-green@release/v1
+        with:
+          allowed-skips: validate, pre-commit, unit-tests, scan-dockerfiles, test-deps, e2e
+          jobs: ${{ toJSON(needs) }}

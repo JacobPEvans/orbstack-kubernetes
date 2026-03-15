@@ -3,16 +3,6 @@ name: E2E Tests
 
 on:
   workflow_dispatch:
-  pull_request:
-    branches: [main]
-    paths:
-      - 'k8s/**'
-      - 'scripts/**'
-      - 'Makefile'
-      - 'tests/**'
-      - '.github/workflows/e2e-tests.yml'
-      - 'CHANGELOG.md'
-      - '.release-please-manifest.json'
 
 permissions:
   contents: read
@@ -20,13 +10,6 @@ permissions:
 jobs:
   e2e:
     name: Deploy and run E2E tests
-    # Skip only for genuine release-please PRs — no infra changes, just version bumps.
-    # "skipped" counts as passing for required status checks in GitHub rulesets.
-    # Both conditions required: exact branch pattern AND bot author, so a developer
-    # can't bypass E2E by naming their branch "release-please-...".
-    # Note: expressions used in a boolean if-condition (not interpolated into a
-    # run: step), so command injection is not possible here.
-    if: "!(startsWith(github.head_ref, 'release-please--branches--') && github.event.pull_request.user.login == 'github-actions[bot]')"
     runs-on: [self-hosted, Linux]
     steps:
       - uses: actions/checkout@v6
