@@ -27,11 +27,10 @@ jobs:
           mask-pod-ips: 'true'
           kubernetes-namespace: monitoring
           kubernetes-context: orbstack
+      - name: Warm up OTEL pipeline
+        run: make warmup
       - name: Wait for pipeline stabilization
         run: |
-          echo "Waiting for OTEL pipeline to stabilize after deploy..."
-          # Send a throwaway trace to prime the gRPC connection
-          python3 scripts/otel-warmup.py || true
           # Wait for collector to successfully export (confirms gRPC connection is live)
           # "TracesExporter" is the debug exporter log line at normal verbosity confirming a batch was sent
           for i in $(seq 1 12); do
