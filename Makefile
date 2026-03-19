@@ -82,13 +82,13 @@ warmup: ## Send warmup trace to prime OTEL gRPC connection (retries 3x)
 		if .venv/bin/python3 scripts/otel-warmup.py; then \
 			echo "Warmup succeeded on attempt $$attempt"; \
 			break; \
-		fi; \
-		if [ "$$attempt" -eq 3 ]; then \
+		elif [ "$$attempt" -lt 3 ]; then \
+			echo "Warmup attempt $$attempt failed, retrying in 5s..."; \
+			sleep 5; \
+		else \
 			echo "ERROR: OTEL warmup failed after 3 attempts"; \
 			exit 1; \
 		fi; \
-		echo "Warmup attempt $$attempt failed, retrying in 5s..."; \
-		sleep 5; \
 	done
 
 power-save: ## Scale all monitoring pods to 0 replicas (battery saver)
