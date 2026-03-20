@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.3.2](https://github.com/JacobPEvans/kubernetes-monitoring/compare/v1.3.1...v1.3.2) (2026-03-20)
+
+
+### Bug Fixes
+
+* replace custom install-packs.sh with Cribl CLI ([#105](https://github.com/JacobPEvans/kubernetes-monitoring/issues/105)) ([82f7a5c](https://github.com/JacobPEvans/kubernetes-monitoring/commit/82f7a5c5231a8b679d1a82dfb7364ff28bd2fb15))
+
 ## [1.3.1](https://github.com/JacobPEvans/kubernetes-monitoring/compare/v1.3.0...v1.3.1) (2026-03-20)
 
 ### Bug Fixes
