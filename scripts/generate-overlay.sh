@@ -128,6 +128,14 @@ spec:
           hostPath:
             path: "${HOME_DIR}/Library/Application Support/Antigravity/logs"
             type: DirectoryOrCreate
+        - name: vscode-data
+          hostPath:
+            path: "${HOME_DIR}/Library/Application Support/Code"
+            type: DirectoryOrCreate
+        - name: vscode-extensions
+          hostPath:
+            path: ${HOME_DIR}/.vscode
+            type: DirectoryOrCreate
         - name: cribl-config-templates
           configMap:
             name: cribl-edge-standalone-config

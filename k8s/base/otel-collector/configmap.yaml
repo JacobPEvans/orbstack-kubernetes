@@ -55,7 +55,7 @@ data:
         attributes:
           - key: service.name
             value: claude-code
-            action: upsert
+            action: insert
           - key: deployment.environment
             value: local
             action: upsert
