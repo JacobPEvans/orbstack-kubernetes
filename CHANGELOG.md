@@ -2,11 +2,9 @@
 
 ## [1.3.0](https://github.com/JacobPEvans/kubernetes-monitoring/compare/v1.2.0...v1.3.0) (2026-03-20)
 
-
 ### Features
 
 * route macOS power data and expose HEC NodePort ([#100](https://github.com/JacobPEvans/kubernetes-monitoring/issues/100)) ([2f38864](https://github.com/JacobPEvans/kubernetes-monitoring/commit/2f38864e0e628f34e29ae2c48cc474790bfd2647))
-
 
 ### Bug Fixes
 

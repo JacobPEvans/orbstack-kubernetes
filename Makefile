@@ -1,4 +1,4 @@
-.PHONY: help validate validate-schemas generate-overlay deploy deploy-doppler status logs build-images run-claude run-gemini test test-e2e test-smoke test-pipeline test-forwarding test-sourcetypes test-unit test-all test-setup full-power power-save power-status clean runner-build runner-start runner-stop runner-status runner-logs
+.PHONY: help validate validate-schemas generate-overlay deploy deploy-doppler status logs build-images run-claude run-gemini test test-e2e test-smoke test-pipeline test-forwarding test-sourcetypes test-unit test-all test-setup warmup warmup-e2e full-power power-save power-status clean runner-build runner-start runner-stop runner-status runner-logs
 
 CONTEXT ?= orbstack
 NAMESPACE := monitoring
@@ -76,6 +76,25 @@ test-setup: ## Install test dependencies in virtual environment
 	python3 -m venv .venv
 	.venv/bin/pip install -r tests/requirements.txt
 
+warmup-e2e: ## Verify full pipeline delivers traces to Splunk (blocking gate)
+	@$(PYTEST_CHECK)
+	.venv/bin/python3 scripts/warmup-e2e.py
+
+warmup: ## Send warmup trace to prime OTEL gRPC connection (retries 3x)
+	@$(PYTEST_CHECK)
+	@for attempt in 1 2 3; do \
+		if .venv/bin/python3 scripts/otel-warmup.py; then \
+			echo "Warmup succeeded on attempt $$attempt"; \
+			break; \
+		elif [ "$$attempt" -lt 3 ]; then \
+			echo "Warmup attempt $$attempt failed, retrying in 5s..."; \
+			sleep 5; \
+		else \
+			echo "ERROR: OTEL warmup failed after 3 attempts"; \
+			exit 1; \
+		fi; \
+	done
+
 power-save: ## Scale all monitoring pods to 0 replicas (battery saver)
 	@echo "Scaling down monitoring stack..."
 	kubectl --context $(CONTEXT) -n $(NAMESPACE) scale statefulset --all --replicas=0
@@ -99,7 +118,7 @@ clean: ## Delete monitoring namespace (destructive!)
 	kubectl --context $(CONTEXT) delete namespace $(NAMESPACE) --ignore-not-found
 
 runner-build: ## Build the self-hosted runner Docker image
-	docker build -t kubernetes-monitoring/actions-runner:latest docker/actions-runner/
+	docker build -t kubernetes-monitoring/actions-runner:latest -f docker/actions-runner/Dockerfile .
 
 runner-start: runner-stop ## Start the self-hosted GitHub Actions runner
 	@scripts/runner-kubeconfig.sh > ~/.config/actions-runner-kubeconfig

@@ -48,6 +48,13 @@ RUN useradd -m -d /home/runner runner \
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
+# Pre-install test dependencies so the venv has packages even if pip/network fails at runtime
+COPY tests/requirements.txt /tmp/test-requirements.txt
+RUN python3 -m venv /home/runner/test-venv \
+    && /home/runner/test-venv/bin/pip install --no-cache-dir -r /tmp/test-requirements.txt \
+    && rm /tmp/test-requirements.txt \
+    && chown -R runner:runner /home/runner/test-venv
+
 USER runner
 WORKDIR /home/runner/actions-runner
 

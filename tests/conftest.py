@@ -5,6 +5,7 @@ import json
 import os
 import subprocess
 import time
+import uuid
 from typing import Any
 
 import pytest
@@ -165,3 +166,35 @@ def cluster_ready():
         FileNotFoundError,
     ):
         pytest.skip("OrbStack cluster not reachable")
+
+
+@pytest.fixture(scope="session")
+def pipeline_warm(splunk_client):
+    """Verify pipeline delivers to Splunk before running forwarding tests.
+
+    Session-scoped defense-in-depth: protects against running Splunk-dependent
+    tests without the warmup script (e.g. local ``make test-forwarding``).
+    """
+    from helpers import query_splunk, send_trace_with_retry
+
+    sentinel = f"fixture-warmup-{uuid.uuid4().hex[:8]}"
+
+    try:
+        send_trace_with_retry(
+            OTEL_GRPC_ENDPOINT,
+            sentinel,
+            tracer_name="pipeline-warmup",
+            span_name="warmup",
+            retries=3,
+        )
+    except Exception:
+        pytest.fail("Pipeline warmup: failed to send trace after 3 attempts")
+
+    mgmt_url, admin_password = splunk_client
+    deadline = time.time() + 180
+    while time.time() < deadline:
+        results = query_splunk(mgmt_url, admin_password, f'index=claude "{sentinel}"', earliest="-5m")
+        if results:
+            return
+        time.sleep(5)
+    pytest.fail(f"Pipeline warmup: trace '{sentinel}' not in Splunk after 180s")
