@@ -27,34 +27,24 @@ from conftest import (
     kubectl_secret_values,
     port_forward_get,
 )
-from helpers import find_flowing_stats, parse_otel_error_lines, query_splunk, url_present_in_outputs_yaml
-from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
-from opentelemetry.sdk.trace import TracerProvider
-from opentelemetry.sdk.trace.export import SimpleSpanProcessor
+from helpers import (
+    find_flowing_stats,
+    parse_otel_error_lines,
+    query_splunk,
+    send_trace_with_retry,
+    url_present_in_outputs_yaml,
+)
 
 
 def _send_trace(test_id: str, *, retries: int = 3) -> None:
     """Send a trace with retry for transient gRPC failures."""
-    for attempt in range(retries):
-        provider = None
-        try:
-            exporter = OTLPSpanExporter(endpoint=OTEL_GRPC_ENDPOINT, insecure=True)
-            provider = TracerProvider()
-            provider.add_span_processor(SimpleSpanProcessor(exporter))
-            tracer = provider.get_tracer("otel-forwarding-test")
-            with tracer.start_as_current_span("forward-test-span") as span:
-                span.set_attribute("test.id", test_id)
-            provider.shutdown()
-            return
-        except Exception:
-            if provider is not None:
-                try:
-                    provider.shutdown()
-                except Exception:
-                    pass
-            if attempt == retries - 1:
-                raise
-            time.sleep(2**attempt)
+    send_trace_with_retry(
+        OTEL_GRPC_ENDPOINT,
+        test_id,
+        tracer_name="otel-forwarding-test",
+        span_name="forward-test-span",
+        retries=retries,
+    )
 
 
 @pytest.mark.usefixtures("cluster_ready")

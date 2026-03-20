@@ -4,6 +4,7 @@ import base64
 import json
 import re
 import ssl
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -108,6 +109,43 @@ def query_splunk(
     except (urllib.error.URLError, OSError):
         return []
     return results
+
+
+def send_trace_with_retry(
+    endpoint: str,
+    test_id: str,
+    *,
+    tracer_name: str = "otel-test",
+    span_name: str = "test-span",
+    retries: int = 3,
+) -> None:
+    """Send an OTLP gRPC trace with exponential-backoff retry.
+
+    Creates a fresh TracerProvider per attempt and ensures cleanup on failure.
+    Raises the last exception after all retries are exhausted.
+    """
+    from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
+    from opentelemetry.sdk.trace import TracerProvider
+    from opentelemetry.sdk.trace.export import SimpleSpanProcessor
+
+    for attempt in range(retries):
+        provider = TracerProvider()
+        try:
+            exporter = OTLPSpanExporter(endpoint=endpoint, insecure=True)
+            provider.add_span_processor(SimpleSpanProcessor(exporter))
+            tracer = provider.get_tracer(tracer_name)
+            with tracer.start_as_current_span(span_name, attributes={"test.id": test_id}):
+                pass
+            provider.shutdown()
+            return
+        except Exception:
+            try:
+                provider.shutdown()
+            except Exception:
+                pass
+            if attempt == retries - 1:
+                raise
+            time.sleep(2**attempt)
 
 
 def url_present_in_outputs_yaml(url: str, yaml_text: str) -> bool:

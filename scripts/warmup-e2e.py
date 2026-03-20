@@ -5,85 +5,20 @@ is delivering events before tests start.  Exits 0 only when Splunk has
 the sentinel trace, exits 1 after 180s timeout.
 """
 
-import base64
-import json
 import os
 import subprocess
 import sys
 import time
 import uuid
 
-# Allow importing helpers from tests/
+# Allow importing from tests/
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "tests"))
-from helpers import query_splunk
-
-CONTEXT = os.environ.get("KUBE_CONTEXT", "orbstack")
-NAMESPACE = os.environ.get("KUBE_NAMESPACE", "monitoring")
-K8S_HOST = os.environ.get("K8S_NODEPORT_HOST", "localhost")
-OTEL_GRPC_ENDPOINT = f"{K8S_HOST}:30317"
+from conftest import CONTEXT, NAMESPACE, OTEL_GRPC_ENDPOINT, kubectl_secret_values
+from helpers import query_splunk, send_trace_with_retry
 
 SEND_RETRIES = 5
-SEND_BACKOFF = 2
 POLL_INTERVAL = 5
 POLL_TIMEOUT = 180
-
-
-def kubectl_secret_values(name: str, keys: list[str]) -> dict[str, str]:
-    """Read multiple k8s secret values in a single kubectl call."""
-    cmd = [
-        "kubectl",
-        "--context",
-        CONTEXT,
-        "-n",
-        NAMESPACE,
-        "get",
-        "secret",
-        name,
-        "-o",
-        "json",
-    ]
-    result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
-    if result.returncode != 0:
-        raise RuntimeError(f"kubectl get secret {name} failed: {result.stderr}")
-    data = json.loads(result.stdout).get("data", {})
-    out = {}
-    for key in keys:
-        encoded = data.get(key)
-        if not encoded:
-            raise RuntimeError(f"Secret {name}[{key}] not found or empty")
-        out[key] = base64.b64decode(encoded).decode()
-    return out
-
-
-def send_warmup_trace(sentinel: str) -> None:
-    """Send a trace with the sentinel ID, retrying on transient gRPC failures."""
-    from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
-    from opentelemetry.sdk.trace import TracerProvider
-    from opentelemetry.sdk.trace.export import SimpleSpanProcessor
-
-    for attempt in range(SEND_RETRIES):
-        provider = None
-        try:
-            exporter = OTLPSpanExporter(endpoint=OTEL_GRPC_ENDPOINT, insecure=True)
-            provider = TracerProvider()
-            provider.add_span_processor(SimpleSpanProcessor(exporter))
-            tracer = provider.get_tracer("e2e-warmup")
-            with tracer.start_as_current_span("e2e-warmup", attributes={"test.id": sentinel}):
-                pass
-            provider.shutdown()
-            print(f"Warmup trace sent (attempt {attempt + 1}): {sentinel}")
-            return
-        except Exception as exc:
-            if provider is not None:
-                try:
-                    provider.shutdown()
-                except Exception:
-                    pass
-            if attempt == SEND_RETRIES - 1:
-                raise
-            wait = SEND_BACKOFF**attempt
-            print(f"Send attempt {attempt + 1} failed ({exc}), retrying in {wait}s...")
-            time.sleep(wait)
 
 
 def dump_diagnostics() -> None:
@@ -118,23 +53,32 @@ def main() -> int:
     mgmt_url = secrets["mgmt-url"]
     admin_password = secrets["admin-password"]
 
-    # Send warmup trace
+    # Send warmup trace with retry
     try:
-        send_warmup_trace(sentinel)
+        send_trace_with_retry(
+            OTEL_GRPC_ENDPOINT,
+            sentinel,
+            tracer_name="e2e-warmup",
+            span_name="e2e-warmup",
+            retries=SEND_RETRIES,
+        )
+        print(f"Warmup trace sent: {sentinel}")
     except Exception as exc:
         print(f"FATAL: Failed to send warmup trace after {SEND_RETRIES} attempts: {exc}")
         return 1
 
-    # Poll Splunk for the sentinel
+    # Poll Splunk for the sentinel — check immediately, then every POLL_INTERVAL
     deadline = time.time() + POLL_TIMEOUT
     attempts = 0
-    while time.time() < deadline:
+    while True:
         attempts += 1
         results = query_splunk(mgmt_url, admin_password, f'index=claude "{sentinel}"', earliest="-5m")
         if results:
             elapsed = POLL_TIMEOUT - (deadline - time.time())
             print(f"Pipeline verified: trace found in Splunk after {elapsed:.0f}s ({attempts} polls)")
             return 0
+        if time.time() >= deadline:
+            break
         remaining = int(deadline - time.time())
         print(f"  Polling Splunk... ({remaining}s remaining)")
         time.sleep(POLL_INTERVAL)
