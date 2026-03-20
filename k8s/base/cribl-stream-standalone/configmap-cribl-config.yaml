@@ -86,7 +86,7 @@ data:
   pack-vars-copilot.yml: |
     github_pat:
       type: string
-      value: "__GITHUB_PAT__"
+      value: "__GITHUB_COPILOT_PAT__"
     github_org:
       type: string
-      value: "__GITHUB_ORG__"
+      value: "__GITHUB_COPILOT_ORG__"

@@ -63,17 +63,17 @@ spec:
               value: >-
                 /opt/cribl/bin/cribl pack install
                 -s https://github.com/JacobPEvans/cc-edge-claude-code-otel/releases/download/v1.2.7/cc-edge-claude-code-otel.crbl
-                || true
+                || echo "WARNING: claude-code-otel pack install failed" >&2
             - name: CRIBL_BEFORE_START_CMD_3
               value: >-
                 /opt/cribl/bin/cribl pack install
                 -s https://github.com/JacobPEvans/cc-edge-gemini-antigravity-io/releases/download/v0.2.2/cc-edge-gemini-antigravity-io.crbl
-                || true
+                || echo "WARNING: gemini-antigravity-io pack install failed" >&2
             - name: CRIBL_BEFORE_START_CMD_4
               value: >-
                 /opt/cribl/bin/cribl pack install
                 -s https://github.com/JacobPEvans/cc-edge-vscode-io/releases/download/v1.0.1/cc-edge-vscode-io.crbl
-                || true
+                || echo "WARNING: vscode-io pack install failed" >&2
           volumeMounts:
             - name: claude-logs
               mountPath: /home/claude/.claude
