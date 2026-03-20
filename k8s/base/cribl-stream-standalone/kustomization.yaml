@@ -1,3 +1,4 @@
+---
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
@@ -6,6 +7,7 @@ resources:
   - service.yaml
   - service-ui.yaml
   - configmap-cribl-config.yaml
+  - service-hec-nodeport.yaml
   - pdb.yaml
 
 configMapGenerator:
