@@ -89,6 +89,33 @@ spec:
               value: "cp /var/tmp/cribl-config/pipelines-force-splunk-meta.yml ${CRIBL_VOLUME_DIR}/local/cribl/pipelines/force-splunk-meta/conf.yml"
             - name: CRIBL_BEFORE_START_CMD_6
               value: "cp /var/tmp/cribl-config/limits.yml ${CRIBL_VOLUME_DIR}/local/cribl/limits.yml"
+            - name: CRIBL_BEFORE_START_CMD_7
+              value: >-
+                /opt/cribl/bin/cribl pack install
+                -s https://github.com/JacobPEvans/cc-stream-github-copilot-rest-io/releases/download/v1.0.0/cc-stream-github-copilot-rest-io.crbl
+                || echo "WARNING: github-copilot-rest-io pack install failed" >&2
+            - name: GITHUB_COPILOT_PAT
+              valueFrom:
+                secretKeyRef:
+                  name: github-copilot-config
+                  key: pat
+                  optional: true
+            - name: GITHUB_COPILOT_ORG
+              valueFrom:
+                secretKeyRef:
+                  name: github-copilot-config
+                  key: org
+                  optional: true
+            - name: CRIBL_BEFORE_START_CMD_8
+              value: |
+                if [ -n "${GITHUB_COPILOT_PAT:-}" ]; then
+                  mkdir -p ${CRIBL_VOLUME_DIR}/local/cc-stream-github-copilot-rest-io &&
+                  sed \
+                    -e "s|__GITHUB_COPILOT_PAT__|${GITHUB_COPILOT_PAT}|g" \
+                    -e "s|__GITHUB_COPILOT_ORG__|${GITHUB_COPILOT_ORG:-}|g" \
+                    /var/tmp/cribl-config/pack-vars-copilot.yml \
+                    > ${CRIBL_VOLUME_DIR}/local/cc-stream-github-copilot-rest-io/vars.yml
+                fi
           volumeMounts:
             - name: cribl-data
               mountPath: /opt/cribl-data

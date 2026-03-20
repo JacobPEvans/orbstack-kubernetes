@@ -530,7 +530,7 @@ class TestInputConfigurations:
       1. The FileMonitor collector is actively finding files (log evidence).
       2. Each expected datatype appears in the Claude Code pack configuration.
 
-    The Claude pack is installed via REST API (install-packs.sh) and stores its
+    The Claude pack is installed via Cribl CLI (CRIBL_BEFORE_START_CMD) and stores its
     inputs in the pack directory (default/cc-edge-claude-code/inputs.yml).
     They do not require Splunk connectivity and run against the live cluster only.
     """
@@ -568,7 +568,7 @@ class TestInputConfigurations:
         )
         assert returncode == 0, (
             f"Could not read Claude pack inputs.yml (exit {returncode}). "
-            "Check that install-packs.sh installed the cc-edge-claude-code pack."
+            "Check that CRIBL_BEFORE_START_CMD installed the cc-edge-claude-code pack."
         )
         assert "/home/claude/.claude/" in output or "$CLAUDE_HOME/.claude/" in output, (
             f"Expected '/home/claude/.claude/' or '$CLAUDE_HOME/.claude/' path in pack inputs.yml, got:\n{output[:500]}"
@@ -671,7 +671,7 @@ class TestGeminiSourcetypeSentinels:
         )
         assert returncode == 0, (
             f"Could not read Gemini pack inputs.yml (exit {returncode}). "
-            "Check that install-packs.sh installed the cc-edge-gemini-antigravity pack."
+            "Check that CRIBL_BEFORE_START_CMD installed the cc-edge-gemini-antigravity pack."
         )
         assert "antigravity-brain" in output, (
             f"'antigravity-brain' input not found in Gemini pack inputs.yml.\n{output[:500]}"
@@ -862,7 +862,7 @@ class TestGeminiSourcetypeExistence:
 class TestGeminiInputConfigurations:
     """Verify the Edge pod has the expected Gemini FileMonitor inputs active and configured.
 
-    The Gemini pack is installed via REST API (install-packs.sh) and stores its
+    The Gemini pack is installed via Cribl CLI (CRIBL_BEFORE_START_CMD) and stores its
     inputs in the pack directory (default/cc-edge-gemini-antigravity/inputs.yml),
     NOT in the (now removed) edge-level local/edge/inputs.yml.
     """
@@ -885,7 +885,7 @@ class TestGeminiInputConfigurations:
         )
         assert returncode == 0, (
             f"Could not read Gemini pack inputs.yml (exit {returncode}). "
-            "Check that install-packs.sh installed the cc-edge-gemini-antigravity pack."
+            "Check that CRIBL_BEFORE_START_CMD installed the cc-edge-gemini-antigravity pack."
         )
         assert "/home/gemini/.gemini" in output or "$GEMINI_HOME/.gemini" in output, (
             f"Expected '/home/gemini/.gemini' or '$GEMINI_HOME/.gemini' path in pack inputs.yml, got:\n{output[:500]}\n"
