@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.3.1](https://github.com/JacobPEvans/kubernetes-monitoring/compare/v1.3.0...v1.3.1) (2026-03-20)
+
+
+### Bug Fixes
+
+* end-to-end Splunk warmup for reliable E2E pipeline tests ([#101](https://github.com/JacobPEvans/kubernetes-monitoring/issues/101)) ([91c5968](https://github.com/JacobPEvans/kubernetes-monitoring/commit/91c5968155419d54e5a6afdde8d19fc45fc67b1d))
+
 ## [1.3.0](https://github.com/JacobPEvans/kubernetes-monitoring/compare/v1.2.0...v1.3.0) (2026-03-20)
 
 ### Features
