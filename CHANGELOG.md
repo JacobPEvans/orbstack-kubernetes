@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.4.0](https://github.com/JacobPEvans/kubernetes-monitoring/compare/v1.3.2...v1.4.0) (2026-03-20)
+
+
+### Features
+
+* VS Code/Copilot integration and OTEL identity fix ([#107](https://github.com/JacobPEvans/kubernetes-monitoring/issues/107)) ([e306bd0](https://github.com/JacobPEvans/kubernetes-monitoring/commit/e306bd023eaa993f6457abb4b9f29fe418366de9))
+
 ## [1.3.2](https://github.com/JacobPEvans/kubernetes-monitoring/compare/v1.3.1...v1.3.2) (2026-03-20)
 
 ### Bug Fixes
