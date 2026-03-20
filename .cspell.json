@@ -90,7 +90,8 @@
     "keyrings",
     "urlencode",
     "poolsize",
-    "virtiofs"
+    "virtiofs",
+    "wordlist"
   ],
   "ignorePaths": [
     "packs/",
