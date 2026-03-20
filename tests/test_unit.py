@@ -187,9 +187,6 @@ class TestSecurityExclusions:
     # Absolute path to the Edge standalone outputs config (ConfigMap now uses configMapGenerator with this file)
     _CONFIGMAP_PATH = Path(__file__).parent.parent / "k8s/base/cribl-edge-standalone/outputs.yml"
 
-    # Path to the pack inputs file in the sibling repo (adapts to any user's home directory)
-    _PACK_INPUTS_PATH = Path.home() / "git/cc-edge-claude-code-otel/default/inputs.yml"
-
     def test_configmap_has_no_input_configurations(self):
         """Edge ConfigMap must NOT contain input configurations.
 
@@ -215,56 +212,26 @@ class TestSecurityExclusions:
             f"Edge ConfigMap should not contain path:/filenames: directives — found: {input_lines}"
         )
 
-    # Path to the Gemini pack inputs file in the sibling repo
-    _GEMINI_PACK_INPUTS_PATH = Path.home() / "git/cc-edge-gemini-antigravity-io/default/inputs.yml"
+    # Pack inputs files in sibling repos, keyed by a short label used in assertion messages.
+    _PACK_INPUTS = {
+        "claude": Path.home() / "git/cc-edge-claude-code-otel/default/inputs.yml",
+        "gemini": Path.home() / "git/cc-edge-gemini-antigravity-io/default/inputs.yml",
+        "vscode": Path.home() / "git/cc-edge-vscode-io/default/inputs.yml",
+    }
 
-    # Path to the VS Code pack inputs file in the sibling repo
-    _VSCODE_PACK_INPUTS_PATH = Path.home() / "git/cc-edge-vscode-io/default/inputs.yml"
-
+    @pytest.mark.parametrize("pack_label,inputs_path", list(_PACK_INPUTS.items()))
     @pytest.mark.parametrize("pattern", FORBIDDEN_PATTERNS)
-    def test_forbidden_pattern_not_in_pack_inputs(self, pattern):
+    def test_forbidden_pattern_not_in_pack_inputs(self, pattern, pack_label, inputs_path):
         """Pack inputs.yml must not reference sensitive patterns."""
-        if not self._PACK_INPUTS_PATH.exists():
-            pytest.skip(f"Pack inputs.yml not found at {self._PACK_INPUTS_PATH}")
+        if not inputs_path.exists():
+            pytest.skip(f"{pack_label} pack inputs.yml not found at {inputs_path}")
 
-        pack_inputs_text = self._PACK_INPUTS_PATH.read_text()
-
-        # Check every line that sets path or filenames values
-        for line in pack_inputs_text.splitlines():
-            stripped = line.strip()
-            if not (stripped.startswith("path:") or stripped.startswith("filenames:")):
-                continue
-            assert pattern not in stripped, f"Forbidden pattern '{pattern}' found in pack inputs.yml line: {stripped}"
-
-    @pytest.mark.parametrize("pattern", FORBIDDEN_PATTERNS)
-    def test_forbidden_pattern_not_in_vscode_pack_inputs(self, pattern):
-        """VS Code pack inputs.yml must not reference sensitive patterns."""
-        if not self._VSCODE_PACK_INPUTS_PATH.exists():
-            pytest.skip(f"VS Code pack inputs.yml not found at {self._VSCODE_PACK_INPUTS_PATH}")
-
-        pack_inputs_text = self._VSCODE_PACK_INPUTS_PATH.read_text()
+        pack_inputs_text = inputs_path.read_text()
 
         for line in pack_inputs_text.splitlines():
             stripped = line.strip()
             if not (stripped.startswith("path:") or stripped.startswith("filenames:")):
                 continue
             assert pattern not in stripped, (
-                f"Forbidden pattern '{pattern}' found in VS Code pack inputs.yml line: {stripped}"
-            )
-
-    @pytest.mark.parametrize("pattern", FORBIDDEN_PATTERNS)
-    def test_forbidden_pattern_not_in_gemini_pack_inputs(self, pattern):
-        """Gemini pack inputs.yml must not reference sensitive patterns."""
-        if not self._GEMINI_PACK_INPUTS_PATH.exists():
-            pytest.skip(f"Gemini pack inputs.yml not found at {self._GEMINI_PACK_INPUTS_PATH}")
-
-        pack_inputs_text = self._GEMINI_PACK_INPUTS_PATH.read_text()
-
-        # Check every line that sets path or filenames values
-        for line in pack_inputs_text.splitlines():
-            stripped = line.strip()
-            if not (stripped.startswith("path:") or stripped.startswith("filenames:")):
-                continue
-            assert pattern not in stripped, (
-                f"Forbidden pattern '{pattern}' found in Gemini pack inputs.yml line: {stripped}"
+                f"Forbidden pattern '{pattern}' found in {pack_label} pack inputs.yml line: {stripped}"
             )
