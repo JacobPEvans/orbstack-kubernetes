@@ -55,13 +55,19 @@ data:
         conf:
           add:
             - name: index
-              value: "(datatype||'').startsWith('gemini-cli-') || (datatype||'').startsWith('antigravity-') ? 'gemini' : 'claude'"
+              value: >-
+                (datatype||'').startsWith('gemini-cli-') || (datatype||'').startsWith('antigravity-') ? 'gemini'
+                : (datatype||'') === 'copilot-chat-otel' || (datatype||'') === 'github:copilot:usage' ? 'copilot'
+                : 'claude'
             - name: sourcetype
               value: >-
                 (datatype||'').startsWith('gemini-cli-') ? (datatype === 'gemini-cli-session'
                 && (source||'').endsWith('/logs.json') ? 'gemini:cli:logs'
                 : (datatype||'gemini-cli-unknown').replace('gemini-cli-','gemini:cli:'))
                 : (datatype||'').startsWith('antigravity-') ? (datatype||'antigravity-unknown').replace('antigravity-','antigravity:')
+                : (datatype||'') === 'copilot-chat-otel' ? 'copilot:chat:otel'
+                : (datatype||'') === 'github:copilot:usage' ? 'github:copilot:usage'
+                : (datatype||'').startsWith('vscode-') ? (datatype||'vscode-unknown').replace('vscode-','vscode:')
                 : (source||'').includes('/subagents/') ? 'claude:code:subagent'
                 : (datatype||'claude-code-unknown').replace('claude-code-','claude:code:')
             - name: source

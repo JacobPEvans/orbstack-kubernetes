@@ -34,8 +34,10 @@ wait_and_reauth() {
 
 PACK_CLAUDE_VERSION="v1.2.7"
 PACK_GEMINI_VERSION="v0.2.2"
+PACK_VSCODE_VERSION="v1.0.1"
 PACK_CLAUDE="https://github.com/JacobPEvans/cc-edge-claude-code-otel/releases/download/${PACK_CLAUDE_VERSION}/cc-edge-claude-code-otel.crbl"
 PACK_GEMINI="https://github.com/JacobPEvans/cc-edge-gemini-antigravity-io/releases/download/${PACK_GEMINI_VERSION}/cc-edge-gemini-antigravity-io.crbl"
+PACK_VSCODE="https://github.com/JacobPEvans/cc-edge-vscode-io/releases/download/${PACK_VSCODE_VERSION}/cc-edge-vscode-io.crbl"
 
 # Install each pack only if not already present (idempotent across pod restarts).
 # Each pack install triggers a Cribl worker reload. We must wait for the reload
@@ -61,6 +63,17 @@ if ! curl -sf -H "Authorization: Bearer ${TOKEN}" "${API}/packs/cc-edge-gemini-a
     -d "{\"name\":\"cc-edge-gemini-antigravity\",\"source\":\"${PACK_GEMINI}\"}" \
     || echo "WARNING: Gemini pack install failed"
   # Wait for Cribl worker to finish reloading after Gemini pack install.
+  sleep 10
+  wait_and_reauth
+fi
+
+# Install VS Code pack (FileMonitor inputs for VS Code/Copilot logs).
+if ! curl -sf -H "Authorization: Bearer ${TOKEN}" "${API}/packs/cc-edge-vscode-io" >/dev/null 2>&1; then
+  curl -sf -X POST "${API}/packs" -H "Authorization: Bearer ${TOKEN}" \
+    --retry 3 --retry-delay 10 --retry-all-errors --connect-timeout 30 --max-time 120 \
+    -H "Content-Type: application/json" \
+    -d "{\"name\":\"cc-edge-vscode-io\",\"source\":\"${PACK_VSCODE}\"}" \
+    || echo "WARNING: VS Code pack install failed"
   sleep 10
   wait_and_reauth
 fi

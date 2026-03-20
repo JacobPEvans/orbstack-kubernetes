@@ -96,6 +96,19 @@ else
   echo "  SKIPPED: ai-api-keys (no API keys set)"
 fi
 
+# GitHub Copilot config (REST collector PAT)
+if [ -n "${GITHUB_COPILOT_PAT:-}" ]; then
+  GH_ARGS=(--from-literal=pat="$GITHUB_COPILOT_PAT")
+  [ -n "${GITHUB_COPILOT_ORG:-}" ] && GH_ARGS+=(--from-literal=org="$GITHUB_COPILOT_ORG")
+  kubectl --context "$CONTEXT" create secret generic github-copilot-config \
+    --namespace "$NAMESPACE" \
+    "${GH_ARGS[@]}" \
+    --dry-run=client -o yaml | kubectl --context "$CONTEXT" apply -f -
+  echo "  Created: github-copilot-config"
+else
+  echo "  SKIPPED: github-copilot-config (GITHUB_COPILOT_PAT not set)"
+fi
+
 # Heartbeat config (healthchecks.io ping URLs from SOPS)
 HB_ARGS=()
 [ -n "${HEALTHCHECKS_STREAM_URL:-}" ] && HB_ARGS+=(--from-literal=stream-url="$HEALTHCHECKS_STREAM_URL")

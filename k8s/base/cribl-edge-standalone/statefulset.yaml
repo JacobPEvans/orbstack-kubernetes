@@ -48,6 +48,10 @@ spec:
               value: "/home/claude"
             - name: GEMINI_HOME
               value: "/home/gemini"
+            - name: VSCODE_HOME
+              value: "/home/vscode/Library/Application Support/Code"
+            - name: VSCODE_EXT_HOME
+              value: "/home/vscode"
             - name: CRIBL_EDGE_API_HOST
               value: "0.0.0.0"
             - name: CRIBL_BEFORE_START_CMD_1
@@ -79,6 +83,12 @@ spec:
               readOnly: true
             - name: antigravity-logs
               mountPath: "/home/gemini/Library/Application Support/Antigravity/logs"
+              readOnly: true
+            - name: vscode-data
+              mountPath: "/home/vscode/Library/Application Support/Code"
+              readOnly: true
+            - name: vscode-extensions
+              mountPath: /home/vscode/.vscode
               readOnly: true
             - name: cribl-config-templates
               mountPath: /var/tmp/cribl-config
@@ -150,6 +160,14 @@ spec:
         - name: antigravity-logs
           hostPath:
             path: "PLACEHOLDER_HOME_DIR/Library/Application Support/Antigravity/logs"
+            type: DirectoryOrCreate
+        - name: vscode-data
+          hostPath:
+            path: "PLACEHOLDER_HOME_DIR/Library/Application Support/Code"
+            type: DirectoryOrCreate
+        - name: vscode-extensions
+          hostPath:
+            path: PLACEHOLDER_HOME_DIR/.vscode
             type: DirectoryOrCreate
         - name: cribl-config-templates
           configMap:

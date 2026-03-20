@@ -218,6 +218,9 @@ class TestSecurityExclusions:
     # Path to the Gemini pack inputs file in the sibling repo
     _GEMINI_PACK_INPUTS_PATH = Path.home() / "git/cc-edge-gemini-antigravity-io/default/inputs.yml"
 
+    # Path to the VS Code pack inputs file in the sibling repo
+    _VSCODE_PACK_INPUTS_PATH = Path.home() / "git/cc-edge-vscode-io/default/inputs.yml"
+
     @pytest.mark.parametrize("pattern", FORBIDDEN_PATTERNS)
     def test_forbidden_pattern_not_in_pack_inputs(self, pattern):
         """Pack inputs.yml must not reference sensitive patterns."""
@@ -232,6 +235,22 @@ class TestSecurityExclusions:
             if not (stripped.startswith("path:") or stripped.startswith("filenames:")):
                 continue
             assert pattern not in stripped, f"Forbidden pattern '{pattern}' found in pack inputs.yml line: {stripped}"
+
+    @pytest.mark.parametrize("pattern", FORBIDDEN_PATTERNS)
+    def test_forbidden_pattern_not_in_vscode_pack_inputs(self, pattern):
+        """VS Code pack inputs.yml must not reference sensitive patterns."""
+        if not self._VSCODE_PACK_INPUTS_PATH.exists():
+            pytest.skip(f"VS Code pack inputs.yml not found at {self._VSCODE_PACK_INPUTS_PATH}")
+
+        pack_inputs_text = self._VSCODE_PACK_INPUTS_PATH.read_text()
+
+        for line in pack_inputs_text.splitlines():
+            stripped = line.strip()
+            if not (stripped.startswith("path:") or stripped.startswith("filenames:")):
+                continue
+            assert pattern not in stripped, (
+                f"Forbidden pattern '{pattern}' found in VS Code pack inputs.yml line: {stripped}"
+            )
 
     @pytest.mark.parametrize("pattern", FORBIDDEN_PATTERNS)
     def test_forbidden_pattern_not_in_gemini_pack_inputs(self, pattern):

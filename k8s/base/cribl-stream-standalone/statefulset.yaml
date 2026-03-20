@@ -89,6 +89,20 @@ spec:
               value: "cp /var/tmp/cribl-config/pipelines-force-splunk-meta.yml ${CRIBL_VOLUME_DIR}/local/cribl/pipelines/force-splunk-meta/conf.yml"
             - name: CRIBL_BEFORE_START_CMD_6
               value: "cp /var/tmp/cribl-config/limits.yml ${CRIBL_VOLUME_DIR}/local/cribl/limits.yml"
+            - name: CRIBL_BEFORE_START_CMD_7
+              value: /bin/sh /var/tmp/cribl-config/install-packs.sh &
+            - name: GITHUB_COPILOT_PAT
+              valueFrom:
+                secretKeyRef:
+                  name: github-copilot-config
+                  key: pat
+                  optional: true
+            - name: GITHUB_COPILOT_ORG
+              valueFrom:
+                secretKeyRef:
+                  name: github-copilot-config
+                  key: org
+                  optional: true
           volumeMounts:
             - name: cribl-data
               mountPath: /opt/cribl-data

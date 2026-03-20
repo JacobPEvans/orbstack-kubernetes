@@ -7,3 +7,12 @@ resources:
   - service-ui.yaml
   - configmap-cribl-config.yaml
   - pdb.yaml
+
+configMapGenerator:
+  - name: cribl-stream-standalone-config
+    namespace: monitoring
+    options:
+      disableNameSuffixHash: true
+    files:
+      - install-packs.sh=scripts/install-packs.sh
+    behavior: merge
