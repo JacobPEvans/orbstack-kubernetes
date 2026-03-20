@@ -19,6 +19,8 @@ TOKEN=$(curl -sf -X POST "${API}/auth/login" \
 [ -z "$TOKEN" ] && echo "WARNING: Auth failed, skipping pack install" && exit 0
 
 # wait_and_reauth: called after each pack install triggers a worker reload.
+# Health-check runs FIRST (API may be down during reload), then re-acquires
+# the JWT (reload invalidates sessions), then guards against empty token.
 wait_and_reauth() {
   j=0; until curl -sf "${API}/health" >/dev/null 2>&1; do
     j=$((j+1)); [ "$j" -gt 12 ] && echo "WARNING: API did not recover after reload, proceeding anyway" && break; sleep 5
@@ -30,6 +32,8 @@ wait_and_reauth() {
   [ -z "$TOKEN" ] && echo "WARNING: Re-auth failed after reload, skipping remaining steps" && exit 0
 }
 
+CHANGED=0
+
 PACK_COPILOT_REST_VERSION="v1.0.0"
 PACK_COPILOT_REST="https://github.com/JacobPEvans/cc-stream-github-copilot-rest-io/releases/download/${PACK_COPILOT_REST_VERSION}/cc-stream-github-copilot-rest-io.crbl"
 
@@ -40,6 +44,7 @@ if ! curl -sf -H "Authorization: Bearer ${TOKEN}" "${API}/packs/cc-stream-github
     -H "Content-Type: application/json" \
     -d "{\"name\":\"cc-stream-github-copilot-rest-io\",\"source\":\"${PACK_COPILOT_REST}\"}" \
     || echo "WARNING: Copilot REST pack install failed"
+  CHANGED=1
   sleep 10
   wait_and_reauth
 fi
@@ -54,15 +59,18 @@ if [ -n "${GITHUB_COPILOT_PAT:-}" ]; then
     -H "Content-Type: application/json" \
     -d "{\"vars\":${VARS}}" \
     || echo "WARNING: Failed to configure Copilot REST pack variables"
+  CHANGED=1
 fi
 
-# Commit config changes and reload.
-curl -sf -X POST "${API}/version/commit" -H "Authorization: Bearer ${TOKEN}" \
-  -H "Content-Type: application/json" \
-  -d '{"message":"Pack installation"}' \
-  || echo "WARNING: version/commit failed, worker may not have loaded config changes"
-curl -sf -X POST "${API}/system/settings/reload" \
-  -H "Authorization: Bearer ${TOKEN}" \
-  || echo "WARNING: settings reload failed, worker may not have loaded new packs"
+# Commit config changes and reload only if something was installed or configured.
+if [ "$CHANGED" -eq 1 ]; then
+  curl -sf -X POST "${API}/version/commit" -H "Authorization: Bearer ${TOKEN}" \
+    -H "Content-Type: application/json" \
+    -d '{"message":"Pack installation"}' \
+    || echo "WARNING: version/commit failed, worker may not have loaded config changes"
+  curl -sf -X POST "${API}/system/settings/reload" \
+    -H "Authorization: Bearer ${TOKEN}" \
+    || echo "WARNING: settings reload failed, worker may not have loaded new packs"
+fi
 
 echo "Stream pack installation complete"
