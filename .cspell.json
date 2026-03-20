@@ -47,6 +47,7 @@
     "xfail",
     "bmuschko",
     "distroless",
+    "dorny",
     "kubeconform",
     "passthru",
     "pipefail",
