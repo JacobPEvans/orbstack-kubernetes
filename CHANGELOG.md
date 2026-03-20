@@ -1,5 +1,20 @@
 # Changelog
 
+## [1.3.0](https://github.com/JacobPEvans/kubernetes-monitoring/compare/v1.2.0...v1.3.0) (2026-03-20)
+
+
+### Features
+
+* route macOS power data and expose HEC NodePort ([#100](https://github.com/JacobPEvans/kubernetes-monitoring/issues/100)) ([2f38864](https://github.com/JacobPEvans/kubernetes-monitoring/commit/2f38864e0e628f34e29ae2c48cc474790bfd2647))
+
+
+### Bug Fixes
+
+* add release-please config for manifest mode ([1e40728](https://github.com/JacobPEvans/kubernetes-monitoring/commit/1e40728a5c238b6bdf28d5dbf2c715de5d59fcf8))
+* pass secrets to release-please reusable workflow ([#98](https://github.com/JacobPEvans/kubernetes-monitoring/issues/98)) ([3744412](https://github.com/JacobPEvans/kubernetes-monitoring/commit/37444126482895e6e85752bb87447dd0558952a8))
+* skip E2E on release-please PRs, trigger on CHANGELOG ([#95](https://github.com/JacobPEvans/kubernetes-monitoring/issues/95)) ([af24964](https://github.com/JacobPEvans/kubernetes-monitoring/commit/af24964bca3c05941715be7140e39c5f3f2afa0e))
+* sync release-please VERSION and remove redundant config ([4fc0f86](https://github.com/JacobPEvans/kubernetes-monitoring/commit/4fc0f86a232ac1fdfa35f492d2a830037a6a67e9))
+
 ## [1.2.0](https://github.com/JacobPEvans/kubernetes-monitoring/compare/v1.1.0...v1.2.0) (2026-03-12)
 
 ### Features
