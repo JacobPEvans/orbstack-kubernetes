@@ -83,3 +83,10 @@ data:
         final: true
   limits.yml: |
     maxPQSize: "10GB"
+  pack-vars-copilot.yml: |
+    github_pat:
+      type: string
+      value: "__GITHUB_PAT__"
+    github_org:
+      type: string
+      value: "__GITHUB_ORG__"

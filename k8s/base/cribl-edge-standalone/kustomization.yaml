@@ -13,6 +13,5 @@ configMapGenerator:
     options:
       disableNameSuffixHash: true
     files:
-      - install-packs.sh=scripts/install-packs.sh
       - outputs.yml=outputs.yml
       - limits.yml=limits.yml

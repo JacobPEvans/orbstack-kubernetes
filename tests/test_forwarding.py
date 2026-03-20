@@ -358,7 +358,7 @@ class TestClaudeCodeLogPipeline:
     def test_edge_file_monitor_config_path(self):
         """Edge pack input is configured to monitor /home/claude/.claude/projects/.
 
-        The pack is installed via REST API (install-packs.sh) and stores its
+        The pack is installed via Cribl CLI (CRIBL_BEFORE_START_CMD) and stores its
         inputs in the pack directory (default/cc-edge-claude-code/inputs.yml).
         """
         output, returncode = kubectl_exec_no_fail(
