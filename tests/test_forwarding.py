@@ -27,21 +27,24 @@ from conftest import (
     kubectl_secret_values,
     port_forward_get,
 )
-from helpers import find_flowing_stats, parse_otel_error_lines, query_splunk, url_present_in_outputs_yaml
-from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
-from opentelemetry.sdk.trace import TracerProvider
-from opentelemetry.sdk.trace.export import SimpleSpanProcessor
+from helpers import (
+    find_flowing_stats,
+    parse_otel_error_lines,
+    query_splunk,
+    send_trace_with_retry,
+    url_present_in_outputs_yaml,
+)
 
 
-def _send_trace(test_id: str) -> None:
-    # insecure=True: TLS not needed for local OrbStack NodePort testing
-    exporter = OTLPSpanExporter(endpoint=OTEL_GRPC_ENDPOINT, insecure=True)
-    provider = TracerProvider()
-    provider.add_span_processor(SimpleSpanProcessor(exporter))
-    tracer = provider.get_tracer("otel-forwarding-test")
-    with tracer.start_as_current_span("forward-test-span") as span:
-        span.set_attribute("test.id", test_id)
-    provider.shutdown()
+def _send_trace(test_id: str, *, retries: int = 3) -> None:
+    """Send a trace with retry for transient gRPC failures."""
+    send_trace_with_retry(
+        OTEL_GRPC_ENDPOINT,
+        test_id,
+        tracer_name="otel-forwarding-test",
+        span_name="forward-test-span",
+        retries=retries,
+    )
 
 
 @pytest.mark.usefixtures("cluster_ready")
@@ -120,7 +123,7 @@ class TestEdgeToStreamForwarding:
         assert resp.status_code in (200, 401), f"Cribl Stream inputs API returned unexpected status {resp.status_code}"
 
 
-@pytest.mark.usefixtures("cluster_ready")
+@pytest.mark.usefixtures("cluster_ready", "pipeline_warm")
 class TestStreamToSplunkForwarding:
     """Verify Cribl Stream Standalone forwards to Splunk HEC (arrow A7)."""
 
@@ -313,7 +316,7 @@ def sentinel_claude_file():
             raise
 
 
-@pytest.mark.usefixtures("cluster_ready")
+@pytest.mark.usefixtures("cluster_ready", "pipeline_warm")
 class TestClaudeCodeLogPipeline:
     """Verify .claude/ session log files are picked up by the edge file monitor (arrow A2).
 
