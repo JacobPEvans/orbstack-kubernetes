@@ -21,22 +21,6 @@ POLL_INTERVAL = 5
 POLL_TIMEOUT = 180
 
 
-def verify_splunk_connectivity(mgmt_url: str, admin_password: str) -> bool:
-    """Verify the runner can query the Splunk search API.
-
-    Runs a no-op search (index=_internal | head 1) to confirm both network
-    connectivity and auth. Returns True if results come back, False otherwise.
-    """
-    test_results = query_splunk(mgmt_url, admin_password, "index=_internal | head 1", earliest="-1m")
-    if test_results:
-        print(f"  Splunk search API verified at {mgmt_url} ({len(test_results)} test results)")
-        return True
-    # query_splunk returns [] on connection error OR auth failure OR no results.
-    # For _internal there should always be results, so [] means a real problem.
-    print(f"  WARNING: Splunk search returned no results at {mgmt_url} (auth or connectivity issue)")
-    return False
-
-
 def dump_diagnostics() -> None:
     """Print pod logs to help diagnose pipeline failures."""
     print("\n--- Diagnostic pod logs ---")
@@ -69,12 +53,6 @@ def main() -> int:
     mgmt_url = secrets["mgmt-url"]
     admin_password = secrets["admin-password"]
 
-    # Verify Splunk is reachable before spending time on warmup
-    print("Checking Splunk connectivity...")
-    if not verify_splunk_connectivity(mgmt_url, admin_password):
-        print("FATAL: Splunk management API unreachable — cannot verify pipeline delivery")
-        return 1
-
     # Send warmup trace with retry
     try:
         send_trace_with_retry(
@@ -92,7 +70,6 @@ def main() -> int:
     # Poll Splunk for the sentinel — check immediately, then every POLL_INTERVAL
     deadline = time.time() + POLL_TIMEOUT
     attempts = 0
-    conn_failures = 0
     while True:
         attempts += 1
         results = query_splunk(mgmt_url, admin_password, f'index=claude "{sentinel}"', earliest="-5m")
@@ -100,13 +77,6 @@ def main() -> int:
             elapsed = POLL_TIMEOUT - (deadline - time.time())
             print(f"Pipeline verified: trace found in Splunk after {elapsed:.0f}s ({attempts} polls)")
             return 0
-        if results is not None and len(results) == 0:
-            # query_splunk returns [] on both "no results" AND "connection error"
-            # Do a connectivity check every 5 failed polls to detect the difference
-            conn_failures += 1
-            if conn_failures % 5 == 0:
-                if not verify_splunk_connectivity(mgmt_url, admin_password):
-                    print("WARNING: Splunk became unreachable during polling")
         if time.time() >= deadline:
             break
         remaining = int(deadline - time.time())
