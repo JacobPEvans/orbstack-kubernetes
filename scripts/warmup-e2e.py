@@ -11,6 +11,7 @@ import subprocess
 import sys
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 import uuid
 
@@ -25,29 +26,41 @@ POLL_TIMEOUT = 180
 
 
 def verify_splunk_connectivity(mgmt_url: str, admin_password: str) -> bool:
-    """Verify the runner can reach the Splunk management API.
+    """Verify the runner can query the Splunk search API.
 
-    Returns True if reachable, False otherwise. Prints diagnostic details.
+    Runs a no-op search (index=_internal | head 1) to confirm both network
+    connectivity and auth. Returns True on success, False on failure.
     """
-    import base64
+    # Use the same query path as query_splunk to test the actual endpoint
+    test_results = query_splunk(mgmt_url, admin_password, "index=_internal | head 1", earliest="-1m")
+    if test_results is not None:
+        # query_splunk returns [] on connection error, but also [] for no results.
+        # For _internal index, there should always be results. If empty, try a
+        # raw connectivity check to distinguish auth/network issues.
+        if test_results:
+            print(f"  Splunk search API verified at {mgmt_url} ({len(test_results)} test results)")
+            return True
 
+    # query_splunk returned [] — could be auth failure or network issue.
+    # Try a raw HTTP request to distinguish.
     ctx = ssl.create_default_context()
     ctx.check_hostname = False
     ctx.verify_mode = ssl.CERT_NONE
 
-    credentials = f"admin:{admin_password}"
-    encoded = base64.b64encode(credentials.encode()).decode()
     req = urllib.request.Request(
-        f"{mgmt_url}/services/server/info",
-        headers={"Authorization": f"Basic {encoded}"},
+        f"{mgmt_url}/services/auth/login",
+        data=urllib.parse.urlencode({"username": "admin", "password": admin_password}).encode(),
+        method="POST",
     )
     try:
         with urllib.request.urlopen(req, context=ctx, timeout=10) as resp:
-            print(f"  Splunk reachable at {mgmt_url} (HTTP {resp.status})")
+            print(f"  Splunk auth OK at {mgmt_url} (HTTP {resp.status}), but search returned no results")
             return True
     except urllib.error.HTTPError as exc:
-        # HTTP error means we can reach Splunk (auth/path issues are OK)
-        print(f"  Splunk reachable at {mgmt_url} (HTTP {exc.code} — auth/path issue, but network OK)")
+        if exc.code == 401:
+            print(f"  FATAL: Splunk auth failed at {mgmt_url} (HTTP 401) — admin-password secret is wrong")
+            return False
+        print(f"  Splunk reachable at {mgmt_url} (HTTP {exc.code}), search may work")
         return True
     except (urllib.error.URLError, OSError) as exc:
         print(f"  WARNING: Cannot reach Splunk at {mgmt_url}: {exc}")
