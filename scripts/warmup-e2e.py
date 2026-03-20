@@ -6,13 +6,9 @@ the sentinel trace, exits 1 after 180s timeout.
 """
 
 import os
-import ssl
 import subprocess
 import sys
 import time
-import urllib.error
-import urllib.parse
-import urllib.request
 import uuid
 
 # Allow importing from tests/
@@ -29,42 +25,16 @@ def verify_splunk_connectivity(mgmt_url: str, admin_password: str) -> bool:
     """Verify the runner can query the Splunk search API.
 
     Runs a no-op search (index=_internal | head 1) to confirm both network
-    connectivity and auth. Returns True on success, False on failure.
+    connectivity and auth. Returns True if results come back, False otherwise.
     """
-    # Use the same query path as query_splunk to test the actual endpoint
     test_results = query_splunk(mgmt_url, admin_password, "index=_internal | head 1", earliest="-1m")
-    if test_results is not None:
-        # query_splunk returns [] on connection error, but also [] for no results.
-        # For _internal index, there should always be results. If empty, try a
-        # raw connectivity check to distinguish auth/network issues.
-        if test_results:
-            print(f"  Splunk search API verified at {mgmt_url} ({len(test_results)} test results)")
-            return True
-
-    # query_splunk returned [] — could be auth failure or network issue.
-    # Try a raw HTTP request to distinguish.
-    ctx = ssl.create_default_context()
-    ctx.check_hostname = False
-    ctx.verify_mode = ssl.CERT_NONE
-
-    req = urllib.request.Request(
-        f"{mgmt_url}/services/auth/login",
-        data=urllib.parse.urlencode({"username": "admin", "password": admin_password}).encode(),
-        method="POST",
-    )
-    try:
-        with urllib.request.urlopen(req, context=ctx, timeout=10) as resp:
-            print(f"  Splunk auth OK at {mgmt_url} (HTTP {resp.status}), but search returned no results")
-            return True
-    except urllib.error.HTTPError as exc:
-        if exc.code == 401:
-            print(f"  FATAL: Splunk auth failed at {mgmt_url} (HTTP 401) — admin-password secret is wrong")
-            return False
-        print(f"  Splunk reachable at {mgmt_url} (HTTP {exc.code}), search may work")
+    if test_results:
+        print(f"  Splunk search API verified at {mgmt_url} ({len(test_results)} test results)")
         return True
-    except (urllib.error.URLError, OSError) as exc:
-        print(f"  WARNING: Cannot reach Splunk at {mgmt_url}: {exc}")
-        return False
+    # query_splunk returns [] on connection error OR auth failure OR no results.
+    # For _internal there should always be results, so [] means a real problem.
+    print(f"  WARNING: Splunk search returned no results at {mgmt_url} (auth or connectivity issue)")
+    return False
 
 
 def dump_diagnostics() -> None:
