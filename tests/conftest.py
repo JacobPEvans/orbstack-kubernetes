@@ -5,6 +5,7 @@ import json
 import os
 import subprocess
 import time
+import uuid
 from typing import Any
 
 import pytest
@@ -165,3 +166,49 @@ def cluster_ready():
         FileNotFoundError,
     ):
         pytest.skip("OrbStack cluster not reachable")
+
+
+@pytest.fixture(scope="session")
+def pipeline_warm(splunk_client):
+    """Verify pipeline delivers to Splunk before running forwarding tests.
+
+    Session-scoped defense-in-depth: protects against running Splunk-dependent
+    tests without the warmup script (e.g. local ``make test-forwarding``).
+    """
+    from helpers import query_splunk
+    from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
+    from opentelemetry.sdk.trace import TracerProvider
+    from opentelemetry.sdk.trace.export import SimpleSpanProcessor
+
+    sentinel = f"fixture-warmup-{uuid.uuid4().hex[:8]}"
+
+    # Send with retry — a single gRPC failure shouldn't doom the 180s poll loop
+    for attempt in range(3):
+        provider = None
+        try:
+            exporter = OTLPSpanExporter(endpoint=OTEL_GRPC_ENDPOINT, insecure=True)
+            provider = TracerProvider()
+            provider.add_span_processor(SimpleSpanProcessor(exporter))
+            tracer = provider.get_tracer("pipeline-warmup")
+            with tracer.start_as_current_span("warmup", attributes={"test.id": sentinel}):
+                pass
+            provider.shutdown()
+            break
+        except Exception:
+            if provider is not None:
+                try:
+                    provider.shutdown()
+                except Exception:
+                    pass
+            if attempt == 2:
+                pytest.fail("Pipeline warmup: failed to send trace after 3 attempts")
+            time.sleep(2**attempt)
+
+    mgmt_url, admin_password = splunk_client
+    deadline = time.time() + 180
+    while time.time() < deadline:
+        results = query_splunk(mgmt_url, admin_password, f'index=claude "{sentinel}"', earliest="-5m")
+        if results:
+            return
+        time.sleep(5)
+    pytest.fail(f"Pipeline warmup: trace '{sentinel}' not in Splunk after 180s")

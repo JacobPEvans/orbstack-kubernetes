@@ -1,4 +1,4 @@
-.PHONY: help validate validate-schemas generate-overlay deploy deploy-doppler status logs build-images run-claude run-gemini test test-e2e test-smoke test-pipeline test-forwarding test-sourcetypes test-unit test-all test-setup warmup full-power power-save power-status clean runner-build runner-start runner-stop runner-status runner-logs
+.PHONY: help validate validate-schemas generate-overlay deploy deploy-doppler status logs build-images run-claude run-gemini test test-e2e test-smoke test-pipeline test-forwarding test-sourcetypes test-unit test-all test-setup warmup warmup-e2e full-power power-save power-status clean runner-build runner-start runner-stop runner-status runner-logs
 
 CONTEXT ?= orbstack
 NAMESPACE := monitoring
@@ -75,6 +75,10 @@ test-all: ## Run all tests in order: unit → smoke → pipeline → forwarding 
 test-setup: ## Install test dependencies in virtual environment
 	python3 -m venv .venv
 	.venv/bin/pip install -r tests/requirements.txt
+
+warmup-e2e: ## Verify full pipeline delivers traces to Splunk (blocking gate)
+	@$(PYTEST_CHECK)
+	.venv/bin/python3 scripts/warmup-e2e.py
 
 warmup: ## Send warmup trace to prime OTEL gRPC connection (retries 3x)
 	@$(PYTEST_CHECK)
