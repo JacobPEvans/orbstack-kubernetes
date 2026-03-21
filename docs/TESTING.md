@@ -152,5 +152,8 @@ kubectl exec -n monitoring cribl-stream-standalone-0 -- \
 - **A3 (Host FS → Edge Managed)**: Not verified by forwarding tests; only pod health is checked
 - **A6 (Edge Managed → Cribl Cloud)**: Not locally testable (cloud-managed)
 - **A9 (MCP Server → Cribl Cloud)**: Not locally testable
+- **A10 (Stream → GitHub REST API)**: Copilot REST metrics require a valid PAT + org; not locally testable
+- **VS Code sourcetypes**: Covered by pack install validation (unit tests check cc-edge-vscode-io forbidden patterns); E2E sourcetype sentinels planned for future PR
+- **Copilot sourcetypes** (`copilot:chat:otel`, `github:copilot:usage`): Routing rules validated by Stream pipeline config; E2E tests require active Copilot data sources
 
 See [ARCHITECTURE.md](ARCHITECTURE.md) for the full test coverage map.
