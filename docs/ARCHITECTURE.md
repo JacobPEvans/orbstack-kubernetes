@@ -70,7 +70,7 @@ flowchart LR
 | ST9 | Sourcetype: plugins (query-only) | `test_plugins_sourcetype_exists` | test_sourcetypes.py |
 | A10 | Cribl Stream → GitHub REST API (Copilot metrics) | Not locally testable (requires valid PAT + org) | — |
 | ST10 | Sourcetype: gemini:cli:session | `test_gemini_session_sourcetype` ✓Splunk | test_sourcetypes.py |
-| ST11 | Sourcetype: gemini:cli:logs | `test_gemini_logs_sourcetype` ✓Splunk | test_sourcetypes.py |
+| ST11 | Sourcetype: gemini:cli:logs | `test_gemini_cli_sourcetypes_exist` ✓Splunk (wildcard `gemini:cli:*`) | test_sourcetypes.py |
 | ST12 | Sourcetype: copilot:chat:otel | Not locally testable (requires Copilot Chat OTEL data) | — |
 | ST13 | Sourcetype: github:copilot:usage | Not locally testable (requires valid PAT + org) | — |
 | SC1 | Security: no sensitive paths | `test_no_forbidden_patterns_in_edge_inputs_configmap`,<br>`test_forbidden_pattern_not_in_pack_inputs` | test_unit.py |
