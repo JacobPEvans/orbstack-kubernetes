@@ -46,8 +46,8 @@ Five StatefulSets in the monitoring namespace:
 |------------|------|-----|
 | `otel-collector` | OTLP receiver, forwards to Cribl Stream Standalone | None |
 | `cribl-edge-managed` | Cloud-managed edge, forwards to Cribl Cloud | None |
-| `cribl-edge-standalone` | Local edge with [expanded pack](https://github.com/JacobPEvans/cc-edge-claude-code-otel) (9 file inputs + OTEL), forwards to Cribl Stream Standalone | :30910 |
-| `cribl-stream-standalone` | Local Stream leader with UI, outputs to Splunk HEC | :30900 |
+| `cribl-edge-standalone` | Local edge with 3 packs ([claude-code-otel](https://github.com/JacobPEvans/cc-edge-claude-code-otel), [gemini-antigravity-io](https://github.com/JacobPEvans/cc-edge-gemini-antigravity-io), [vscode-io](https://github.com/JacobPEvans/cc-edge-vscode-io)), forwards to Cribl Stream Standalone | :30910 |
+| `cribl-stream-standalone` | Local Stream leader with UI, [Copilot REST collector](https://github.com/JacobPEvans/cc-stream-github-copilot-rest-io) pack, outputs to Splunk HEC | :30900 |
 | `cribl-mcp-server` | Cribl Cloud MCP API server for Claude Code | :30030 |
 
 Directory layout:
@@ -56,7 +56,7 @@ Directory layout:
 - `k8s/overlays/local/` - Generated overlay with real volume paths (gitignored)
 - `scripts/` - Deployment and overlay generation scripts
 - `docker/` - Dockerfiles for ephemeral AI containers
-- `packs/` - (removed — pack now installed from [JacobPEvans/cc-edge-claude-code-otel](https://github.com/JacobPEvans/cc-edge-claude-code-otel) GitHub release at pod startup). Note: the `.crbl` download has no checksum/signature verification. Acceptable for this local OrbStack dev stack where the pack repo is under the same developer's GitHub account; not suitable for production without integrity checks.
+- `packs/` - (removed — packs now installed via `cribl pack install` from GitHub releases at pod startup). Edge: cc-edge-claude-code-otel, cc-edge-gemini-antigravity-io, cc-edge-vscode-io. Stream: cc-stream-github-copilot-rest-io. Note: `.crbl` downloads have no checksum/signature verification — acceptable for local OrbStack dev stack.
 - `docs/` - Extended documentation
 
 ## Dev Environment
