@@ -19,6 +19,7 @@ flowchart LR
     HB2["heartbeat-splunk\nCronJob"]
     HB3["heartbeat-edge\nCronJob"]
     HB4["heartbeat-otel\nCronJob"]
+    GitHubAPI["GitHub REST API\n(api.github.com)"]
 
     Client -->|"A1: OTLP gRPC/HTTP"| OtelCollector
     HostFS -->|"A2: file input"| EdgeStandalone
@@ -29,6 +30,7 @@ flowchart LR
     StreamStandalone -->|"A7: HEC HTTPS"| SplunkHEC
     ClaudeCode -->|"A8: MCP HTTP :30030"| McpServer
     McpServer -->|"A9: API HTTPS :443"| CriblCloud
+    StreamStandalone -->|"A10: REST HTTPS :443"| GitHubAPI
     HB1 -->|"H1: health :9000"| StreamStandalone
     HB1 -->|"H1: ping HTTPS"| HCio
     HB2 -->|"H2: health :8088"| SplunkHEC
@@ -66,4 +68,9 @@ flowchart LR
 | ST7 | Sourcetype: history (query-only) | `test_history_sourcetype_exists` | test_sourcetypes.py |
 | ST8 | Sourcetype: stats (query-only) | `test_stats_sourcetype_exists` | test_sourcetypes.py |
 | ST9 | Sourcetype: plugins (query-only) | `test_plugins_sourcetype_exists` | test_sourcetypes.py |
+| A10 | Cribl Stream → GitHub REST API (Copilot metrics) | Not locally testable (requires valid PAT + org) | — |
+| ST10 | Sourcetype: gemini:cli:session | `test_gemini_session_sourcetype` ✓Splunk | test_sourcetypes.py |
+| ST11 | Sourcetype: gemini:cli:logs | `test_gemini_logs_sourcetype` ✓Splunk | test_sourcetypes.py |
+| ST12 | Sourcetype: copilot:chat:otel | Not locally testable (requires Copilot Chat OTEL data) | — |
+| ST13 | Sourcetype: github:copilot:usage | Not locally testable (requires valid PAT + org) | — |
 | SC1 | Security: no sensitive paths | `test_no_forbidden_patterns_in_edge_inputs_configmap`,<br>`test_forbidden_pattern_not_in_pack_inputs` | test_unit.py |
