@@ -3,7 +3,8 @@
     { "pattern": "^http://localhost" },
     { "pattern": "^http://127\\.0\\.0\\.1" },
     { "pattern": "^http://cribl" },
-    { "pattern": "^http://otel" }
+    { "pattern": "^http://otel" },
+    { "pattern": "github\\.com/JacobPEvans/kubernetes-monitoring/issues" }
   ],
   "retryOn429": true,
   "retryCount": 3,
