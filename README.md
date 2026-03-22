@@ -66,16 +66,16 @@ make status
 ```text
 orbstack-kubernetes/
 ├── k8s/
-│   ├── base/                    # Kustomize base (portable, no real paths)
+│   ├── monitoring/              # Kustomize base for monitoring stack (portable, no real paths)
 │   │   ├── kustomization.yaml
-│   │   ├── namespace.yaml
-│   │   ├── priority-classes.yaml
 │   │   ├── otel-collector/
 │   │   ├── cribl-edge-managed/
 │   │   ├── cribl-edge-standalone/
 │   │   ├── cribl-stream-standalone/
-│   │   ├── network-policies/
-│   │   └── ai-jobs/
+│   │   ├── cribl-mcp-server/
+│   │   └── network-policies/
+│   ├── sandbox/                 # AI sandbox containers (ai-sandbox namespace)
+│   │   └── namespace.yaml
 │   └── overlays/
 │       └── local/               # Generated at deploy time (gitignored)
 ├── docker/

@@ -1,4 +1,4 @@
-.PHONY: help validate validate-schemas generate-overlay deploy deploy-doppler status logs build-images run-claude run-gemini test test-e2e test-smoke test-pipeline test-forwarding test-sourcetypes test-unit test-all test-setup warmup warmup-e2e full-power power-save power-status monitoring-up monitoring-down clean runner-build runner-start runner-stop runner-status runner-logs
+.PHONY: help validate validate-schemas generate-overlay deploy deploy-doppler status logs build-images test test-e2e test-smoke test-pipeline test-forwarding test-sourcetypes test-unit test-all test-setup warmup warmup-e2e full-power power-save power-status monitoring-up monitoring-down clean runner-build runner-start runner-stop runner-status runner-logs
 
 CONTEXT ?= orbstack
 NAMESPACE := monitoring
@@ -40,13 +40,6 @@ build-images: ## Build Claude Code and Gemini CLI Docker images
 	docker build -t orbstack-kubernetes/claude-code:latest docker/claude-code/
 	docker build -t orbstack-kubernetes/gemini-cli:latest docker/gemini-cli/
 
-# TODO: moved to k8s/sandbox/ in PR 2
-# run-claude: ## Create a Claude Code ephemeral job
-# 	sed "s|PLACEHOLDER_HOME_DIR|$$HOME|g" k8s/sandbox/ai-jobs/claude-code-job.yaml | kubectl --context $(CONTEXT) apply -f -
-
-# TODO: moved to k8s/sandbox/ in PR 2
-# run-gemini: ## Create a Gemini CLI ephemeral job
-# 	sed "s|PLACEHOLDER_HOME_DIR|$$HOME|g" k8s/sandbox/ai-jobs/gemini-cli-job.yaml | kubectl --context $(CONTEXT) apply -f -
 
 test: ## Run all pipeline tests (requires deployed stack)
 	@$(PYTEST_CHECK)
@@ -126,8 +119,9 @@ power-status: ## Show monitoring pod replica counts and macOS power source
 	@echo ""
 	@pmset -g batt 2>/dev/null | head -1 || true
 
-clean: ## Delete monitoring namespace (destructive!)
+clean: ## Delete monitoring and sandbox namespaces (destructive!)
 	kubectl --context $(CONTEXT) delete namespace $(NAMESPACE) --ignore-not-found
+	kubectl --context $(CONTEXT) delete namespace ai-sandbox --ignore-not-found
 
 runner-build: ## Build the self-hosted runner Docker image
 	docker build -t orbstack-kubernetes/actions-runner:latest -f docker/actions-runner/Dockerfile .
