@@ -13,7 +13,7 @@ from pathlib import Path
 import pytest
 import yaml
 
-BASE_DIR = Path(__file__).parent.parent / "k8s" / "base"
+BASE_DIR = Path(__file__).parent.parent / "k8s" / "monitoring"
 NETWORK_POLICIES_DIR = BASE_DIR / "network-policies"
 EDGE_STANDALONE_DIR = BASE_DIR / "cribl-edge-standalone"
 OTEL_COLLECTOR_DIR = BASE_DIR / "otel-collector"
@@ -143,7 +143,7 @@ class TestPlaceholderHomeDirRule:
     """Verify base manifests use PLACEHOLDER_HOME_DIR for user-space hostPath volumes.
 
     CLAUDE.md rule: 'Base manifests use literal PLACEHOLDER_HOME_DIR for hostPath
-    volumes. NEVER replace with real paths in k8s/base/.'
+    volumes. NEVER replace with real paths in k8s/monitoring/.'
     """
 
     @pytest.mark.parametrize(
@@ -163,7 +163,7 @@ class TestPlaceholderHomeDirRule:
             if path == "/" or path.startswith(_SYSTEM_PATH_PREFIXES):
                 # Root mount or system directories are OK
                 continue
-            # Any other absolute path is a real user-space path — forbidden in k8s/base/
+            # Any other absolute path is a real user-space path — forbidden in k8s/monitoring/
             pytest.fail(
                 f"{yaml_file.relative_to(BASE_DIR)}: hostPath '{path}' is a real user-space path — "
                 "use PLACEHOLDER_HOME_DIR instead (see CLAUDE.md)"

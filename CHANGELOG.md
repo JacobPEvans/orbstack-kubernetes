@@ -2,13 +2,11 @@
 
 ## [1.4.1](https://github.com/JacobPEvans/kubernetes-monitoring/compare/v1.4.0...v1.4.1) (2026-03-21)
 
-
 ### Bug Fixes
 
 * add Copilot secrets example and update pack inventory docs ([#109](https://github.com/JacobPEvans/kubernetes-monitoring/issues/109)) ([c7d9bdc](https://github.com/JacobPEvans/kubernetes-monitoring/commit/c7d9bdcaf841106ecef89386b10e5ef55aade926))
 
 ## [1.4.0](https://github.com/JacobPEvans/kubernetes-monitoring/compare/v1.3.2...v1.4.0) (2026-03-20)
-
 
 ### Features
 

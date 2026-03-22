@@ -10,8 +10,8 @@ make build-images
 
 This builds:
 
-- `kubernetes-monitoring/claude-code:latest` - Claude Code CLI in Alpine
-- `kubernetes-monitoring/gemini-cli:latest` - Gemini CLI in Alpine
+- `orbstack-kubernetes/claude-code:latest` - Claude Code CLI in Alpine
+- `orbstack-kubernetes/gemini-cli:latest` - Gemini CLI in Alpine
 
 ## Running Jobs
 

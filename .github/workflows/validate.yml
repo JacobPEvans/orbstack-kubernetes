@@ -25,15 +25,20 @@ jobs:
         uses: bmuschko/setup-kubeconform@v1
 
       - name: Kustomize build
-        run: kubectl kustomize k8s/base/ > /tmp/rendered.yaml
+        run: |
+          kubectl kustomize k8s/monitoring/ > /tmp/rendered-monitoring.yaml
+          kubectl kustomize k8s/sandbox/ > /tmp/rendered-sandbox.yaml
 
       - name: Validate Kubernetes schemas
-        run: kubeconform -strict -summary -output text /tmp/rendered.yaml
+        run: |
+          kubeconform -strict -summary -output text /tmp/rendered-monitoring.yaml
+          kubeconform -strict -summary -output text /tmp/rendered-sandbox.yaml
 
       - name: Lint YAML
         run: |
           pip install yamllint
-          yamllint k8s/base/
+          yamllint k8s/monitoring/
+          yamllint k8s/sandbox/
 
   pre-commit:
     runs-on: ubuntu-latest

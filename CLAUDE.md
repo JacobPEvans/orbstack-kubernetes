@@ -1,6 +1,6 @@
-# kubernetes-monitoring
+# orbstack-kubernetes
 
-Kubernetes monitoring manifests for local OrbStack cluster.
+Kubernetes manifests for local OrbStack cluster.
 
 ## Architecture Invariant
 
@@ -12,7 +12,7 @@ Kubernetes monitoring manifests for local OrbStack cluster.
 
 ## Key Rules
 
-- **PLACEHOLDER_HOME_DIR**: Base manifests use literal `PLACEHOLDER_HOME_DIR` for hostPath volumes. NEVER replace with real paths in `k8s/base/`.
+- **PLACEHOLDER_HOME_DIR**: Base manifests use literal `PLACEHOLDER_HOME_DIR` for hostPath volumes. NEVER replace with real paths in `k8s/monitoring/`.
 - **Overlays are gitignored**: `k8s/overlays/local/` is generated at deploy time by `scripts/generate-overlay.sh` and must not be committed.
 - **Deploy workflow**: `make deploy` generates overlay + creates secrets + applies kustomize.
 - **Secrets**: All secrets in SOPS (`secrets.enc.yaml`). Doppler project/config stored in SOPS, never hardcoded. Never commit plaintext secrets.
@@ -52,8 +52,9 @@ Five StatefulSets in the monitoring namespace:
 
 Directory layout:
 
-- `k8s/base/` - Kustomize base manifests (portable, no real paths)
+- `k8s/monitoring/` - Kustomize base manifests for the monitoring stack (portable, no real paths)
 - `k8s/overlays/local/` - Generated overlay with real volume paths (gitignored)
+- `k8s/sandbox/` - AI sandbox container manifests (populated in a follow-up PR)
 - `scripts/` - Deployment and overlay generation scripts
 - `docker/` - Dockerfiles for ephemeral AI containers
 - `packs/` - (removed — packs now installed via `cribl pack install` from GitHub releases at pod startup). Edge: cc-edge-claude-code-otel, cc-edge-gemini-antigravity-io, cc-edge-vscode-io. Stream: cc-stream-github-copilot-rest-io. Note: `.crbl` downloads have no checksum/signature verification — acceptable for local OrbStack dev stack.
