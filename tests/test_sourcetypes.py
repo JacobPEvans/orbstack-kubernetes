@@ -752,7 +752,7 @@ class TestGeminiSourcetypeSentinels:
         # polling can still verify the session data made it through the pipeline.
         try:
             result = subprocess.run(
-                [gemini_bin, "-p", f"kubernetes-monitoring test sentinel {sentinel_id}"],
+                [gemini_bin, "-p", f"orbstack-kubernetes test sentinel {sentinel_id}"],
                 capture_output=True,
                 text=True,
                 timeout=300,

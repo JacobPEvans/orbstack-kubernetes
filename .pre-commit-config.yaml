@@ -99,10 +99,10 @@ repos:
     hooks:
       - id: kustomize-build
         name: Validate kustomize builds
-        entry: bash -c 'kubectl kustomize k8s/base/ > /dev/null'
+        entry: bash -c 'kubectl kustomize k8s/monitoring/ > /dev/null && kubectl kustomize k8s/sandbox/ > /dev/null'
         language: system
         pass_filenames: false
-        files: ^k8s/base/.*\.yaml$
+        files: ^k8s/(monitoring|sandbox)/.*\.yaml$
 
   # ---------------------------------------------------------------------------
   # Kubernetes schema validation
@@ -111,10 +111,13 @@ repos:
     hooks:
       - id: kubeconform
         name: Validate Kubernetes schemas
-        entry: bash -c 'set -o pipefail; kubectl kustomize k8s/base/ | kubeconform -strict -summary -output text'
+        entry: >-
+          bash -c 'set -o pipefail;
+          kubectl kustomize k8s/monitoring/ | kubeconform -strict -summary -output text &&
+          kubectl kustomize k8s/sandbox/ | kubeconform -strict -summary -output text'
         language: system
         pass_filenames: false
-        files: ^k8s/base/.*\.yaml$
+        files: ^k8s/(monitoring|sandbox)/.*\.yaml$
 
   # ---------------------------------------------------------------------------
   # Commit message validation (commit-msg stage)

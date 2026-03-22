@@ -185,7 +185,7 @@ class TestSecurityExclusions:
     ]
 
     # Absolute path to the Edge standalone outputs config (ConfigMap now uses configMapGenerator with this file)
-    _CONFIGMAP_PATH = Path(__file__).parent.parent / "k8s/base/cribl-edge-standalone/outputs.yml"
+    _CONFIGMAP_PATH = Path(__file__).parent.parent / "k8s/monitoring/cribl-edge-standalone/outputs.yml"
 
     def test_configmap_has_no_input_configurations(self):
         """Edge ConfigMap must NOT contain input configurations.

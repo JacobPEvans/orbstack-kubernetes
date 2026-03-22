@@ -1,4 +1,4 @@
-# kubernetes-monitoring
+# orbstack-kubernetes
 
 Kubernetes monitoring stack for local OrbStack cluster. Collects, processes, and routes logs from Claude Code, Ollama, terminal sessions, and ephemeral AI containers.
 
@@ -17,7 +17,7 @@ Kubernetes monitoring stack for local OrbStack cluster. Collects, processes, and
 
 ```bash
 # 1. Clone and enter repo
-cd ~/git/kubernetes-monitoring/main
+cd ~/git/orbstack-kubernetes/main
 
 # 2. Set up secrets (one-time)
 cp secrets.enc.yaml.example secrets.enc.yaml
@@ -64,7 +64,7 @@ make status
 ## Directory Structure
 
 ```text
-kubernetes-monitoring/
+orbstack-kubernetes/
 ├── k8s/
 │   ├── base/                    # Kustomize base (portable, no real paths)
 │   │   ├── kustomization.yaml
@@ -120,7 +120,7 @@ This project uses [Nix flakes](https://wiki.nixos.org/wiki/Flakes) + [direnv](ht
 ### Setup
 
 ```sh
-cd kubernetes-monitoring/main    # or any worktree
+cd orbstack-kubernetes/main    # or any worktree
 direnv allow                     # one-time per worktree
 ```
 

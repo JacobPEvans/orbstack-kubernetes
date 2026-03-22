@@ -1,8 +1,8 @@
-.PHONY: help validate validate-schemas generate-overlay deploy deploy-doppler status logs build-images run-claude run-gemini test test-e2e test-smoke test-pipeline test-forwarding test-sourcetypes test-unit test-all test-setup warmup warmup-e2e full-power power-save power-status clean runner-build runner-start runner-stop runner-status runner-logs
+.PHONY: help validate validate-schemas generate-overlay deploy deploy-doppler status logs build-images run-claude run-gemini test test-e2e test-smoke test-pipeline test-forwarding test-sourcetypes test-unit test-all test-setup warmup warmup-e2e full-power power-save power-status monitoring-up monitoring-down clean runner-build runner-start runner-stop runner-status runner-logs
 
 CONTEXT ?= orbstack
 NAMESPACE := monitoring
-GITHUB_REPO ?= JacobPEvans/kubernetes-monitoring
+GITHUB_REPO ?= JacobPEvans/orbstack-kubernetes
 PYTEST_CHECK := test -x .venv/bin/pytest || { echo "Run 'make test-setup' first to install test dependencies"; exit 1; }
 UNIT_TEST_FILES := tests/test_unit.py tests/test_manifests.py tests/test_conftest_utils.py
 
@@ -10,10 +10,12 @@ help: ## Show all targets
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
 
 validate: ## Validate kustomize builds (syntax + references)
-	kubectl kustomize k8s/base/ > /dev/null
+	kubectl kustomize k8s/monitoring/ > /dev/null
+	kubectl kustomize k8s/sandbox/ > /dev/null
 
 validate-schemas: ## Validate rendered manifests against K8s schemas
-	bash -c 'set -o pipefail; kubectl kustomize k8s/base/ | kubeconform -strict -summary -output text'
+	bash -c 'set -o pipefail; kubectl kustomize k8s/monitoring/ | kubeconform -strict -summary -output text'
+	bash -c 'set -o pipefail; kubectl kustomize k8s/sandbox/ | kubeconform -strict -summary -output text'
 
 generate-overlay: ## Generate local overlay with real volume paths
 	./scripts/generate-overlay.sh
@@ -31,14 +33,16 @@ logs: ## Tail all pod logs in monitoring namespace
 	kubectl --context $(CONTEXT) -n $(NAMESPACE) logs -l app.kubernetes.io/part-of=claude-monitoring --all-containers --tail=50 -f
 
 build-images: ## Build Claude Code and Gemini CLI Docker images
-	docker build -t kubernetes-monitoring/claude-code:latest docker/claude-code/
-	docker build -t kubernetes-monitoring/gemini-cli:latest docker/gemini-cli/
+	docker build -t orbstack-kubernetes/claude-code:latest docker/claude-code/
+	docker build -t orbstack-kubernetes/gemini-cli:latest docker/gemini-cli/
 
-run-claude: ## Create a Claude Code ephemeral job
-	sed "s|PLACEHOLDER_HOME_DIR|$$HOME|g" k8s/base/ai-jobs/claude-code-job.yaml | kubectl --context $(CONTEXT) apply -f -
+# TODO: moved to k8s/sandbox/ in PR 2
+# run-claude: ## Create a Claude Code ephemeral job
+# 	sed "s|PLACEHOLDER_HOME_DIR|$$HOME|g" k8s/sandbox/ai-jobs/claude-code-job.yaml | kubectl --context $(CONTEXT) apply -f -
 
-run-gemini: ## Create a Gemini CLI ephemeral job
-	sed "s|PLACEHOLDER_HOME_DIR|$$HOME|g" k8s/base/ai-jobs/gemini-cli-job.yaml | kubectl --context $(CONTEXT) apply -f -
+# TODO: moved to k8s/sandbox/ in PR 2
+# run-gemini: ## Create a Gemini CLI ephemeral job
+# 	sed "s|PLACEHOLDER_HOME_DIR|$$HOME|g" k8s/sandbox/ai-jobs/gemini-cli-job.yaml | kubectl --context $(CONTEXT) apply -f -
 
 test: ## Run all pipeline tests (requires deployed stack)
 	@$(PYTEST_CHECK)
@@ -97,17 +101,21 @@ warmup: ## Send warmup trace to prime OTEL gRPC connection (retries 3x)
 
 power-save: ## Scale all monitoring pods to 0 replicas (battery saver)
 	@echo "Scaling down monitoring stack..."
-	kubectl --context $(CONTEXT) -n $(NAMESPACE) scale statefulset --all --replicas=0
+	kubectl --context $(CONTEXT) -n $(NAMESPACE) scale statefulset otel-collector cribl-edge-managed cribl-edge-standalone cribl-stream-standalone cribl-mcp-server --replicas=0
 	@echo "All monitoring pods scaled to 0. Run 'make full-power' to restore."
 
 full-power: ## Scale all monitoring pods to 1 replica (full power)
 	@echo "Scaling up monitoring stack..."
-	kubectl --context $(CONTEXT) -n $(NAMESPACE) scale statefulset --all --replicas=1
+	kubectl --context $(CONTEXT) -n $(NAMESPACE) scale statefulset otel-collector cribl-edge-managed cribl-edge-standalone cribl-stream-standalone cribl-mcp-server --replicas=1
 	@echo "Waiting for rollouts..."
 	@for sts in otel-collector cribl-edge-managed cribl-edge-standalone cribl-stream-standalone cribl-mcp-server; do \
 		kubectl --context $(CONTEXT) -n $(NAMESPACE) rollout status statefulset/$$sts --timeout=120s; \
 	done
 	@echo "All monitoring pods restored."
+
+monitoring-up: full-power ## Alias for full-power
+
+monitoring-down: power-save ## Alias for power-save
 
 power-status: ## Show monitoring pod replica counts and macOS power source
 	@kubectl --context $(CONTEXT) -n $(NAMESPACE) get statefulsets --no-headers 2>/dev/null | awk '{printf "  %-35s %s\n", $$1, $$2}'
@@ -118,7 +126,7 @@ clean: ## Delete monitoring namespace (destructive!)
 	kubectl --context $(CONTEXT) delete namespace $(NAMESPACE) --ignore-not-found
 
 runner-build: ## Build the self-hosted runner Docker image
-	docker build -t kubernetes-monitoring/actions-runner:latest -f docker/actions-runner/Dockerfile .
+	docker build -t orbstack-kubernetes/actions-runner:latest -f docker/actions-runner/Dockerfile .
 
 runner-start: runner-stop ## Start the self-hosted GitHub Actions runner
 	@scripts/runner-kubeconfig.sh > ~/.config/actions-runner-kubeconfig
@@ -147,7 +155,7 @@ runner-start: runner-stop ## Start the self-hosted GitHub Actions runner
 	  -v $(HOME)/.claude/tasks:$(HOME)/.claude/tasks:rw \
 	  -v $(HOME)/.claude/teams:$(HOME)/.claude/teams:rw \
 	  -v $(HOME)/.gemini:$(HOME)/.gemini:rw \
-	  kubernetes-monitoring/actions-runner:latest && \
+	  orbstack-kubernetes/actions-runner:latest && \
 	rm -f "$$ENV_FILE"
 
 runner-stop: ## Stop and remove the self-hosted runner
