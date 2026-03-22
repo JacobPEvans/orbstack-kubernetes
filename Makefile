@@ -3,6 +3,8 @@
 CONTEXT ?= orbstack
 NAMESPACE := monitoring
 GITHUB_REPO ?= JacobPEvans/orbstack-kubernetes
+KUSTOMIZE_DIRS := k8s/monitoring k8s/sandbox
+MONITORING_STATEFULSETS := otel-collector cribl-edge-managed cribl-edge-standalone cribl-stream-standalone cribl-mcp-server
 PYTEST_CHECK := test -x .venv/bin/pytest || { echo "Run 'make test-setup' first to install test dependencies"; exit 1; }
 UNIT_TEST_FILES := tests/test_unit.py tests/test_manifests.py tests/test_conftest_utils.py
 
@@ -10,12 +12,14 @@ help: ## Show all targets
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
 
 validate: ## Validate kustomize builds (syntax + references)
-	kubectl kustomize k8s/monitoring/ > /dev/null
-	kubectl kustomize k8s/sandbox/ > /dev/null
+	@for dir in $(KUSTOMIZE_DIRS); do \
+		kubectl kustomize $$dir/ > /dev/null; \
+	done
 
 validate-schemas: ## Validate rendered manifests against K8s schemas
-	bash -c 'set -o pipefail; kubectl kustomize k8s/monitoring/ | kubeconform -strict -summary -output text'
-	bash -c 'set -o pipefail; kubectl kustomize k8s/sandbox/ | kubeconform -strict -summary -output text'
+	@for dir in $(KUSTOMIZE_DIRS); do \
+		bash -c 'set -o pipefail; kubectl kustomize "$$1" | kubeconform -strict -summary -output text' -- $$dir || exit 1; \
+	done
 
 generate-overlay: ## Generate local overlay with real volume paths
 	./scripts/generate-overlay.sh
@@ -101,14 +105,14 @@ warmup: ## Send warmup trace to prime OTEL gRPC connection (retries 3x)
 
 power-save: ## Scale all monitoring pods to 0 replicas (battery saver)
 	@echo "Scaling down monitoring stack..."
-	kubectl --context $(CONTEXT) -n $(NAMESPACE) scale statefulset otel-collector cribl-edge-managed cribl-edge-standalone cribl-stream-standalone cribl-mcp-server --replicas=0
+	kubectl --context $(CONTEXT) -n $(NAMESPACE) scale statefulset $(MONITORING_STATEFULSETS) --replicas=0
 	@echo "All monitoring pods scaled to 0. Run 'make full-power' to restore."
 
 full-power: ## Scale all monitoring pods to 1 replica (full power)
 	@echo "Scaling up monitoring stack..."
-	kubectl --context $(CONTEXT) -n $(NAMESPACE) scale statefulset otel-collector cribl-edge-managed cribl-edge-standalone cribl-stream-standalone cribl-mcp-server --replicas=1
+	kubectl --context $(CONTEXT) -n $(NAMESPACE) scale statefulset $(MONITORING_STATEFULSETS) --replicas=1
 	@echo "Waiting for rollouts..."
-	@for sts in otel-collector cribl-edge-managed cribl-edge-standalone cribl-stream-standalone cribl-mcp-server; do \
+	@for sts in $(MONITORING_STATEFULSETS); do \
 		kubectl --context $(CONTEXT) -n $(NAMESPACE) rollout status statefulset/$$sts --timeout=120s; \
 	done
 	@echo "All monitoring pods restored."

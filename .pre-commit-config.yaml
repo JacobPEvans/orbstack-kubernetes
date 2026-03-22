@@ -99,7 +99,7 @@ repos:
     hooks:
       - id: kustomize-build
         name: Validate kustomize builds
-        entry: bash -c 'kubectl kustomize k8s/monitoring/ > /dev/null && kubectl kustomize k8s/sandbox/ > /dev/null'
+        entry: bash -c 'set -e; for dir in k8s/monitoring k8s/sandbox; do kubectl kustomize "$dir" > /dev/null; done'
         language: system
         pass_filenames: false
         files: ^k8s/(monitoring|sandbox)/.*\.yaml$
@@ -112,9 +112,9 @@ repos:
       - id: kubeconform
         name: Validate Kubernetes schemas
         entry: >-
-          bash -c 'set -o pipefail;
-          kubectl kustomize k8s/monitoring/ | kubeconform -strict -summary -output text &&
-          kubectl kustomize k8s/sandbox/ | kubeconform -strict -summary -output text'
+          bash -c 'set -e; set -o pipefail;
+          for dir in k8s/monitoring k8s/sandbox; do
+          kubectl kustomize "$dir" | kubeconform -strict -summary -output text; done'
         language: system
         pass_filenames: false
         files: ^k8s/(monitoring|sandbox)/.*\.yaml$
