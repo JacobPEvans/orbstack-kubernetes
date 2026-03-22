@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.5.0](https://github.com/JacobPEvans/orbstack-kubernetes/compare/v1.4.1...v1.5.0) (2026-03-22)
+
+
+### Features
+
+* rename to orbstack-kubernetes and restructure k8s directories ([#111](https://github.com/JacobPEvans/orbstack-kubernetes/issues/111)) ([c21d9ca](https://github.com/JacobPEvans/orbstack-kubernetes/commit/c21d9ca5a920b4d9815102249c78b648ae0cb573))
+
 ## [1.4.1](https://github.com/JacobPEvans/kubernetes-monitoring/compare/v1.4.0...v1.4.1) (2026-03-21)
 
 ### Bug Fixes
