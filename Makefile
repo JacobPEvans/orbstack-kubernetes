@@ -1,4 +1,4 @@
-.PHONY: help validate validate-schemas generate-overlay deploy deploy-doppler status logs build-images test test-e2e test-smoke test-pipeline test-forwarding test-sourcetypes test-unit test-all test-setup warmup warmup-e2e full-power power-save power-status monitoring-up monitoring-down clean runner-build runner-start runner-stop runner-status runner-logs
+.PHONY: help validate validate-schemas generate-overlay deploy deploy-doppler status logs build-images test test-e2e test-smoke test-pipeline test-forwarding test-sourcetypes test-unit test-all test-setup warmup warmup-e2e full-power power-save power-status monitoring-up monitoring-down clean runner-start runner-stop runner-status runner-logs
 
 CONTEXT ?= orbstack
 NAMESPACE := monitoring
@@ -123,38 +123,29 @@ clean: ## Delete monitoring and sandbox namespaces (destructive!)
 	kubectl --context $(CONTEXT) delete namespace $(NAMESPACE) --ignore-not-found
 	kubectl --context $(CONTEXT) delete namespace ai-sandbox --ignore-not-found
 
-runner-build: ## Build the self-hosted runner Docker image
-	docker build -t orbstack-kubernetes/actions-runner:latest -f docker/actions-runner/Dockerfile .
-
-runner-start: runner-stop ## Start the self-hosted GitHub Actions runner
-	@scripts/runner-kubeconfig.sh > ~/.config/actions-runner-kubeconfig
-	@chmod 600 ~/.config/actions-runner-kubeconfig
-	@RUNNER_TOKEN=$$(gh api repos/$(GITHUB_REPO)/actions/runners/registration-token --method POST --jq '.token') && \
-	SOPS_ENV=$$(sops exec-env secrets.enc.yaml 'env | grep -E "^(DOPPLER_PROJECT|DOPPLER_CONFIG|DOPPLER_TOKEN|CRIBL_STREAM_PASSWORD|HEALTHCHECKS_)"') && \
-	ENV_FILE=$$(mktemp) && \
-	printf '%s\n' "$$SOPS_ENV" > "$$ENV_FILE" && \
-	chmod 600 "$$ENV_FILE" && \
+runner-start: runner-stop ## Start the self-hosted GitHub Actions runner (community Docker image)
+	@sed 's|127.0.0.1|k8s.orb.local|g' ~/.kube/config > ~/.config/runner-kubeconfig
+	@chmod 600 ~/.config/runner-kubeconfig
 	docker run -d \
 	  --name actions-runner \
 	  --restart=always \
-	  -e GITHUB_REPOSITORY=$(GITHUB_REPO) \
-	  -e RUNNER_TOKEN="$$RUNNER_TOKEN" \
+	  -e REPO_URL=https://github.com/$(GITHUB_REPO) \
+	  -e ACCESS_TOKEN=$$(gh auth token) \
 	  -e RUNNER_NAME=orbstack-runner \
-	  -e RUNNER_LABELS="self-hosted,Linux" \
+	  -e LABELS=self-hosted,Linux,ARM64 \
 	  -e DEPLOY_HOME_DIR=$(HOME) \
 	  -e K8S_NODEPORT_HOST=host.internal \
 	  -e CLAUDE_HOME=$(HOME) \
-	  --env-file "$$ENV_FILE" \
+	  -e SOPS_AGE_KEY_FILE=/home/runner/.config/sops/age/keys.txt \
 	  -v $(HOME)/.config/sops/age:/home/runner/.config/sops/age:ro \
-	  -v $(HOME)/.config/actions-runner-kubeconfig:/home/runner/.kube/config:ro \
+	  -v $(HOME)/.config/runner-kubeconfig:/home/runner/.kube/config:ro \
 	  -v $(HOME)/.claude/projects:$(HOME)/.claude/projects:rw \
 	  -v $(HOME)/.claude/logs:$(HOME)/.claude/logs:rw \
 	  -v $(HOME)/.claude/plans:$(HOME)/.claude/plans:rw \
 	  -v $(HOME)/.claude/tasks:$(HOME)/.claude/tasks:rw \
 	  -v $(HOME)/.claude/teams:$(HOME)/.claude/teams:rw \
 	  -v $(HOME)/.gemini:$(HOME)/.gemini:rw \
-	  orbstack-kubernetes/actions-runner:latest && \
-	rm -f "$$ENV_FILE"
+	  myoung34/github-runner:latest
 
 runner-stop: ## Stop and remove the self-hosted runner
 	docker stop actions-runner 2>/dev/null || true

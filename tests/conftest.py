@@ -15,7 +15,7 @@ CONTEXT = os.environ.get("KUBE_CONTEXT", "orbstack")
 NAMESPACE = os.environ.get("KUBE_NAMESPACE", "monitoring")
 
 # K8S_NODEPORT_HOST overrides the host for NodePort services.
-# Use "host.internal" when running tests inside a Docker container (CI runner).
+# Defaults to localhost (native macOS runner accesses OrbStack directly).
 K8S_HOST = os.environ.get("K8S_NODEPORT_HOST", "localhost")
 OTEL_GRPC_ENDPOINT = f"{K8S_HOST}:30317"
 OTEL_HTTP_ENDPOINT = f"http://{K8S_HOST}:30318"
