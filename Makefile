@@ -137,6 +137,7 @@ runner-start: runner-stop ## Start the self-hosted GitHub Actions runner (commun
 	  -e K8S_NODEPORT_HOST=host.internal \
 	  -e CLAUDE_HOME=$(HOME) \
 	  -e SOPS_AGE_KEY_FILE=/home/runner/.config/sops/age/keys.txt \
+	  -e KUBECONFIG=/home/runner/.kube/config \
 	  -v $(HOME)/.config/sops/age:/home/runner/.config/sops/age:ro \
 	  -v $(HOME)/.config/runner-kubeconfig:/home/runner/.kube/config:ro \
 	  -v $(HOME)/.claude/projects:$(HOME)/.claude/projects:rw \
