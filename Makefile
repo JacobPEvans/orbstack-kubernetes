@@ -124,7 +124,8 @@ clean: ## Delete monitoring and sandbox namespaces (destructive!)
 	kubectl --context $(CONTEXT) delete namespace ai-sandbox --ignore-not-found
 
 runner-start: runner-stop ## Start the self-hosted GitHub Actions runner (community Docker image)
-	@sed 's|127.0.0.1|k8s.orb.local|g' ~/.kube/config > ~/.config/runner-kubeconfig
+	@mkdir -p ~/.config
+	@kubectl config view --context $(CONTEXT) --minify --raw | sed 's|127.0.0.1|k8s.orb.local|g' > ~/.config/runner-kubeconfig
 	@chmod 600 ~/.config/runner-kubeconfig
 	docker run -d \
 	  --name actions-runner \
