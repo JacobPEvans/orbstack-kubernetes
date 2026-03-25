@@ -10,9 +10,10 @@ permissions:
 jobs:
   e2e:
     name: Deploy and run E2E tests
-    runs-on: [self-hosted, Linux]
+    runs-on: [self-hosted, Linux, ARM64]
     steps:
       - uses: actions/checkout@v6
+      - uses: ./.github/actions/setup-e2e-tools
       - name: Install test dependencies
         run: make test-setup
       - name: Mask secrets

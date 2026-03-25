@@ -6,7 +6,7 @@ from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExport
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 
-host = os.environ.get("K8S_NODEPORT_HOST", "host.internal")
+host = os.environ.get("K8S_NODEPORT_HOST", "localhost")
 exporter = OTLPSpanExporter(endpoint=f"{host}:30317", insecure=True)
 provider = TracerProvider()
 provider.add_span_processor(SimpleSpanProcessor(exporter))
