@@ -20,4 +20,4 @@ runs:
     - uses: actions/setup-python@v6
       with:
         python-version: '3.14'
-    - uses: dopplerhq/cli-action@v3
+    - uses: dopplerhq/cli-action@v4
