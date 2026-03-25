@@ -204,7 +204,7 @@ jobs:
           version: v4.44.1
       - uses: actions/setup-python@v6
         with:
-          python-version: '3.13'
+          python-version: '3.12'
       - name: Install test dependencies
         run: make test-setup
       - name: Mask secrets

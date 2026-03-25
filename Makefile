@@ -145,7 +145,7 @@ runner-start: runner-stop ## Start the self-hosted GitHub Actions runner (commun
 	  -v $(HOME)/.claude/tasks:$(HOME)/.claude/tasks:rw \
 	  -v $(HOME)/.claude/teams:$(HOME)/.claude/teams:rw \
 	  -v $(HOME)/.gemini:$(HOME)/.gemini:rw \
-	  myoung34/github-runner:latest
+	  myoung34/github-runner:ubuntu-jammy
 
 runner-stop: ## Stop and remove the self-hosted runner
 	docker stop actions-runner 2>/dev/null || true
