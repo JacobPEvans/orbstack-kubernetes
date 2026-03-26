@@ -1,4 +1,4 @@
-.PHONY: help validate validate-schemas generate-overlay deploy deploy-doppler status logs build-images test test-e2e test-smoke test-pipeline test-forwarding test-sourcetypes test-unit test-all test-setup warmup warmup-e2e full-power power-save power-status monitoring-up monitoring-down clean runner-start runner-stop runner-status runner-logs
+.PHONY: help validate validate-schemas generate-overlay deploy deploy-doppler status logs build-images test test-e2e test-smoke test-pipeline test-forwarding test-sourcetypes test-unit test-all test-setup warmup warmup-e2e full-power power-save power-status monitoring-up monitoring-down clean runner-start runner-stop runner-status runner-logs runner-check
 
 CONTEXT ?= orbstack
 NAMESPACE := monitoring
@@ -159,3 +159,15 @@ runner-status: ## Show runner container and GitHub registration status
 
 runner-logs: ## Tail runner container logs
 	docker logs -f actions-runner
+
+runner-check: ## Verify runner container has required tools and mounts
+	@echo "Checking runner container tools..."
+	@docker exec actions-runner python3 --version
+	@docker exec actions-runner git --version
+	@docker exec actions-runner make --version | head -1
+	@docker exec actions-runner curl --version | head -1
+	@docker exec actions-runner jq --version
+	@echo "Checking mounted files..."
+	@docker exec actions-runner test -f /home/runner/.kube/config && echo "  kubeconfig: OK" || echo "  kubeconfig: MISSING"
+	@docker exec actions-runner test -f /home/runner/.config/sops/age/keys.txt && echo "  SOPS age key: OK" || echo "  SOPS age key: MISSING"
+	@echo "All checks passed."
