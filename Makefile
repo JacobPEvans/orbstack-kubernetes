@@ -164,10 +164,10 @@ runner-check: ## Verify runner container has required tools and mounts
 	@echo "Checking runner container tools..."
 	@docker exec actions-runner python3 --version
 	@docker exec actions-runner git --version
-	@docker exec actions-runner make --version | head -1
-	@docker exec actions-runner curl --version | head -1
+	@docker exec actions-runner make --version
+	@docker exec actions-runner curl --version
 	@docker exec actions-runner jq --version
 	@echo "Checking mounted files..."
-	@docker exec actions-runner test -f /home/runner/.kube/config && echo "  kubeconfig: OK" || echo "  kubeconfig: MISSING"
-	@docker exec actions-runner test -f /home/runner/.config/sops/age/keys.txt && echo "  SOPS age key: OK" || echo "  SOPS age key: MISSING"
+	@docker exec actions-runner test -f /home/runner/.kube/config && echo "  kubeconfig: OK" || { echo "  kubeconfig: MISSING"; exit 1; }
+	@docker exec actions-runner test -f /home/runner/.config/sops/age/keys.txt && echo "  SOPS age key: OK" || { echo "  SOPS age key: MISSING"; exit 1; }
 	@echo "All checks passed."
