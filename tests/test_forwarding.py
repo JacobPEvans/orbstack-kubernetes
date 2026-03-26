@@ -369,23 +369,31 @@ class TestGeminiLogPipeline:
             "ls",
             "/home/gemini/.gemini/",
         )
-        assert returncode == 0, (
-            f"hostPath mount /home/gemini/.gemini/ not accessible in edge pod (exit {returncode})"
-        )
+        assert returncode == 0, f"hostPath mount /home/gemini/.gemini/ not accessible in edge pod (exit {returncode})"
 
     def test_sentinel_file_visible_in_edge_pod(self, sentinel_gemini_file):
-        """A .md file written to host ~/.gemini/antigravity/brain/ is readable inside the edge pod."""
+        """A .md file written to host ~/.gemini/antigravity/brain/ is readable inside the edge pod.
+
+        Brief retry (10s) handles filesystem propagation latency through hostPath volumes.
+        """
         sentinel_path, sentinel_id = sentinel_gemini_file
         pod_path = f"/home/gemini/.gemini/antigravity/brain/{sentinel_path.name}"
-        output, returncode = kubectl_exec_no_fail(
-            "statefulset/cribl-edge-standalone",
-            "--",
-            "cat",
-            pod_path,
-        )
+        output = ""
+        returncode = -1
+        for attempt in range(5):
+            output, returncode = kubectl_exec_no_fail(
+                "statefulset/cribl-edge-standalone",
+                "--",
+                "cat",
+                pod_path,
+            )
+            if returncode == 0:
+                break
+            if attempt < 4:
+                time.sleep(2)
         assert returncode == 0, (
-            f"Sentinel file not readable inside edge pod at {pod_path} (exit {returncode}). "
-            "Check that the hostPath volume is correctly mounted."
+            f"Sentinel file not readable inside edge pod at {pod_path} after 10s "
+            f"(exit {returncode}). Check that the hostPath volume is correctly mounted."
         )
         assert sentinel_id in output, f"Sentinel ID {sentinel_id!r} not found in pod file content: {output!r}"
 
