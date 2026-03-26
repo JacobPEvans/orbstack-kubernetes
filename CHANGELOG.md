@@ -2,7 +2,6 @@
 
 ## [1.5.1](https://github.com/JacobPEvans/orbstack-kubernetes/compare/v1.5.0...v1.5.1) (2026-03-25)
 
-
 ### Bug Fixes
 
 * replace custom Docker runner with community image for reliability ([#114](https://github.com/JacobPEvans/orbstack-kubernetes/issues/114)) ([ae1097f](https://github.com/JacobPEvans/orbstack-kubernetes/commit/ae1097f60a016b179fb536fe114d72a735ec77c0))
