@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.5.2](https://github.com/JacobPEvans/orbstack-kubernetes/compare/v1.5.1...v1.5.2) (2026-03-26)
+
+
+### Bug Fixes
+
+* add runner-check target to verify container tools and mounts ([#121](https://github.com/JacobPEvans/orbstack-kubernetes/issues/121)) ([bb8bd36](https://github.com/JacobPEvans/orbstack-kubernetes/commit/bb8bd3635b155eadcb2ad818edee5dc293dada24))
+
 ## [1.5.1](https://github.com/JacobPEvans/orbstack-kubernetes/compare/v1.5.0...v1.5.1) (2026-03-25)
 
 ### Bug Fixes
