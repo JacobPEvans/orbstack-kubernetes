@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.5.4](https://github.com/JacobPEvans/orbstack-kubernetes/compare/v1.5.3...v1.5.4) (2026-03-26)
+
+
+### Bug Fixes
+
+* remove MD012 rule that conflicts with release-please output ([#124](https://github.com/JacobPEvans/orbstack-kubernetes/issues/124)) ([d457c62](https://github.com/JacobPEvans/orbstack-kubernetes/commit/d457c62bb59ef6f10b59a2f7c440bf00090f16b2))
+
 ## [1.5.3](https://github.com/JacobPEvans/orbstack-kubernetes/compare/v1.5.2...v1.5.3) (2026-03-26)
 
 
