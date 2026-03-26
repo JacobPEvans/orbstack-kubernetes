@@ -277,6 +277,40 @@ class TestStreamToSplunkForwarding:
 
 
 # ---------------------------------------------------------------------------
+# Fixture for Gemini log pipeline tests
+# ---------------------------------------------------------------------------
+
+# DEPLOY_HOME_DIR overrides $HOME for Gemini log paths in CI.
+# Use the macOS user home when running tests inside a Docker container (CI runner).
+_GEMINI_HOME = Path(os.environ.get("DEPLOY_HOME_DIR", str(Path.home())))
+_GEMINI_TEST_DIR = _GEMINI_HOME / ".gemini/antigravity/brain"
+
+
+@pytest.fixture
+def sentinel_gemini_file():
+    """Write a unique sentinel .md to ~/.gemini/antigravity/brain/ on the host.
+
+    Yields (path, sentinel_id). Cleans up after the test.
+    The edge pod mounts this directory via hostPath, so the file appears at
+    /home/gemini/.gemini/antigravity/brain/ inside the pod.
+    """
+    _GEMINI_TEST_DIR.mkdir(parents=True, exist_ok=True)
+    sentinel_id = f"PIPELINE_TEST_{uuid.uuid4().hex[:12]}"
+    sentinel_file = _GEMINI_TEST_DIR / f"sentinel-{sentinel_id}.md"
+    sentinel_file.write_text(f"# Sentinel\n\nsentinel: {sentinel_id}\n")
+    yield sentinel_file, sentinel_id
+    try:
+        sentinel_file.unlink()
+    except FileNotFoundError:
+        pass
+    try:
+        _GEMINI_TEST_DIR.rmdir()  # removes dir only if empty
+    except OSError as exc:
+        if exc.errno != errno.ENOTEMPTY:
+            raise
+
+
+# ---------------------------------------------------------------------------
 # Fixture for Claude Code log pipeline tests
 # ---------------------------------------------------------------------------
 
@@ -314,6 +348,128 @@ def sentinel_claude_file():
     except OSError as exc:
         if exc.errno != errno.ENOTEMPTY:
             raise
+
+
+@pytest.mark.usefixtures("cluster_ready", "pipeline_warm")
+class TestGeminiLogPipeline:
+    """Verify .gemini/ log files are picked up by the edge file monitor (arrow A2).
+
+    The file monitoring path (A2: Host FS → Edge Standalone) is separate from the
+    OTLP path (A1/A4) tested by other classes. These tests confirm:
+      1. The hostPath volume mount makes ~/.gemini/ visible inside the edge pod.
+      2. The FileMonitor input (cc-edge-gemini-antigravity) is configured with the correct path.
+      3. A new .md file written on the host is detected by the edge within one poll interval.
+    """
+
+    def test_gemini_home_mount_accessible(self):
+        """Edge pod can access host ~/.gemini/ via the hostPath volume mount."""
+        _, returncode = kubectl_exec_no_fail(
+            "statefulset/cribl-edge-standalone",
+            "--",
+            "ls",
+            "/home/gemini/.gemini/",
+        )
+        assert returncode == 0, (
+            f"hostPath mount /home/gemini/.gemini/ not accessible in edge pod (exit {returncode})"
+        )
+
+    def test_sentinel_file_visible_in_edge_pod(self, sentinel_gemini_file):
+        """A .md file written to host ~/.gemini/antigravity/brain/ is readable inside the edge pod."""
+        sentinel_path, sentinel_id = sentinel_gemini_file
+        pod_path = f"/home/gemini/.gemini/antigravity/brain/{sentinel_path.name}"
+        output, returncode = kubectl_exec_no_fail(
+            "statefulset/cribl-edge-standalone",
+            "--",
+            "cat",
+            pod_path,
+        )
+        assert returncode == 0, (
+            f"Sentinel file not readable inside edge pod at {pod_path} (exit {returncode}). "
+            "Check that the hostPath volume is correctly mounted."
+        )
+        assert sentinel_id in output, f"Sentinel ID {sentinel_id!r} not found in pod file content: {output!r}"
+
+    def test_edge_file_monitor_config_path(self):
+        """Edge pack input is configured to monitor /home/gemini/.gemini/.
+
+        The pack is installed via Cribl CLI (CRIBL_BEFORE_START_CMD) and stores its
+        inputs in the pack directory (default/cc-edge-gemini-antigravity/inputs.yml).
+        """
+        output, returncode = kubectl_exec_no_fail(
+            "statefulset/cribl-edge-standalone",
+            "--",
+            "sh",
+            "-c",
+            "cat ${CRIBL_VOLUME_DIR:-/opt/cribl/data}/default/cc-edge-gemini-antigravity/inputs.yml",
+        )
+        assert returncode == 0, (
+            f"Could not read edge inputs from pack or local config (exit {returncode}). "
+            "Check that CRIBL_BEFORE_START_CMD installed the cc-edge-gemini-antigravity pack correctly."
+        )
+        assert "/home/gemini/.gemini" in output or "$GEMINI_HOME/.gemini" in output, (
+            f"Expected Gemini home path in edge inputs, got:\n{output}"
+        )
+
+    def test_edge_file_monitor_picks_up_sentinel(self, sentinel_gemini_file):
+        """Edge FileMonitor logs a 'collector added' entry for a new .md file within 60s.
+
+        The FileMonitor polls every 10 seconds (interval: 10). A new file written on the
+        host should appear in edge logs within a few poll cycles. After a fresh pod restart,
+        the initial scan of existing files can delay detection of new files.
+        """
+        sentinel_path, _ = sentinel_gemini_file
+        deadline = time.time() + 60
+        while time.time() < deadline:
+            logs = kubectl("logs", "statefulset/cribl-edge-standalone", "--since=3m")
+            if sentinel_path.name in logs and "FileMonitor collector added" in logs:
+                return
+            time.sleep(5)
+        pytest.fail(
+            f"Edge FileMonitor did not log 'collector added' for {sentinel_path.name} within 60s. "
+            "Check that the cc-edge-gemini-antigravity pack is installed and the hostPath volume is mounted correctly."
+        )
+
+    def test_edge_gemini_file_input_active(self):
+        """Edge file monitor must be actively collecting files from the Gemini host filesystem.
+
+        Catches the failure mode where the pack was not installed or loaded by the runtime
+        (e.g. pack download failed, CRIBL_VOLUME_DIR unset). The pack inputs are in the
+        worker namespace and not listed by /api/v1/system/inputs, so we verify activity
+        via pod logs which show FileMonitor collector messages referencing antigravity paths.
+        """
+        logs = kubectl("logs", "statefulset/cribl-edge-standalone")
+        has_gemini_collectors = "antigravity" in logs.lower() and "FileMonitor collector added" in logs
+        assert has_gemini_collectors, (
+            "Edge file monitor is not active for Gemini/Antigravity paths — "
+            "cc-edge-gemini-antigravity pack inputs.yml may not have been loaded. "
+            "Check that CRIBL_BEFORE_START_CMD installed the pack correctly."
+        )
+
+    def test_file_events_reach_splunk_realtime(self, sentinel_gemini_file, splunk_client):
+        """Write a .md sentinel and verify it reaches Splunk index=gemini within 90s.
+
+        End-to-end verification of the full pipeline: Host FS → Edge → Cribl Stream → Splunk (A2+A5+A7).
+        Checks Splunk directly using the REST API instead of only checking Edge sentCount.
+        The sentinel value is unique per test run so matches are unambiguous.
+        """
+        _, sentinel_value = sentinel_gemini_file
+        mgmt_url, admin_password = splunk_client
+
+        deadline = time.time() + 90
+        while time.time() < deadline:
+            results = query_splunk(
+                mgmt_url,
+                admin_password,
+                f'index=gemini sourcetype=antigravity:brain "{sentinel_value}"',
+                earliest="-10m",
+            )
+            if results:
+                return
+            time.sleep(10)
+        pytest.fail(
+            f"Sentinel value '{sentinel_value}' not found in Splunk index=gemini within 90s. "
+            "The Host FS → Edge → Cribl Stream → Splunk pipeline (A2+A5+A7) did not deliver the event."
+        )
 
 
 @pytest.mark.usefixtures("cluster_ready", "pipeline_warm")
