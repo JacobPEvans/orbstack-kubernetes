@@ -216,7 +216,7 @@ class TestSecurityExclusions:
     _PACK_INPUTS = {
         "claude": Path.home() / "git/cc-edge-claude-code-otel/default/inputs.yml",
         "gemini": Path.home() / "git/cc-edge-gemini-antigravity-io/default/inputs.yml",
-        "vscode": Path.home() / "git/cc-edge-vscode-io/default/inputs.yml",
+        "vscode": Path.home() / "git/cc-edge-vscode-io/main/default/inputs.yml",
     }
 
     @pytest.mark.parametrize("pack_label,inputs_path", list(_PACK_INPUTS.items()))
