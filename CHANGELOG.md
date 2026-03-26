@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.5.3](https://github.com/JacobPEvans/orbstack-kubernetes/compare/v1.5.2...v1.5.3) (2026-03-26)
+
+
+### Bug Fixes
+
+* resolve vscode pack path and add Gemini forwarding tests ([#120](https://github.com/JacobPEvans/orbstack-kubernetes/issues/120)) ([9b842d9](https://github.com/JacobPEvans/orbstack-kubernetes/commit/9b842d92d94a4d206b61c5ac2ff9db46f88cdfb2))
+
 ## [1.5.2](https://github.com/JacobPEvans/orbstack-kubernetes/compare/v1.5.1...v1.5.2) (2026-03-26)
 
 ### Bug Fixes
