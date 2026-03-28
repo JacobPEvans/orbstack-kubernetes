@@ -5,7 +5,7 @@ description: Install kubectl, kustomize, sops, yq, Python, and Doppler CLI for E
 runs:
   using: composite
   steps:
-    - uses: azure/setup-kubectl@v4
+    - uses: azure/setup-kubectl@v5
       with:
         version: v1.35.2
     - uses: imranismail/setup-kustomize@v2
