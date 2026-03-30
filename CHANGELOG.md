@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.5.5](https://github.com/JacobPEvans/orbstack-kubernetes/compare/v1.5.4...v1.5.5) (2026-03-30)
+
+
+### Bug Fixes
+
+* use nix-devenv kubernetes shell instead of local flake.nix ([#127](https://github.com/JacobPEvans/orbstack-kubernetes/issues/127)) ([12d0622](https://github.com/JacobPEvans/orbstack-kubernetes/commit/12d0622a7eb8207ea2031795290c6de240a2edd0))
+
 ## [1.5.4](https://github.com/JacobPEvans/orbstack-kubernetes/compare/v1.5.3...v1.5.4) (2026-03-26)
 
 
