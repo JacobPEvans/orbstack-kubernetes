@@ -70,14 +70,14 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       - name: Scan claude-code Dockerfile
-        uses: aquasecurity/trivy-action@0.35.0
+        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # v0.35.0
         with:
           scan-type: config
           scan-ref: docker/claude-code/
           severity: HIGH,CRITICAL
           exit-code: '1'
       - name: Scan gemini-cli Dockerfile
-        uses: aquasecurity/trivy-action@0.35.0
+        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # v0.35.0
         with:
           scan-type: config
           scan-ref: docker/gemini-cli/
