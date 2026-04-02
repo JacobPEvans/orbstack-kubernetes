@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.5.6](https://github.com/JacobPEvans/orbstack-kubernetes/compare/v1.5.5...v1.5.6) (2026-04-02)
+
+
+### Bug Fixes
+
+* SHA-pin aquasecurity/trivy-action (CVE-2026-33634) ([#130](https://github.com/JacobPEvans/orbstack-kubernetes/issues/130)) ([9e796c0](https://github.com/JacobPEvans/orbstack-kubernetes/commit/9e796c0a7039a98fda315710d8dfcf2d1993f026))
+
 ## [1.5.5](https://github.com/JacobPEvans/orbstack-kubernetes/compare/v1.5.4...v1.5.5) (2026-03-30)
 
 
