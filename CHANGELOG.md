@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.5.7](https://github.com/JacobPEvans/orbstack-kubernetes/compare/v1.5.6...v1.5.7) (2026-04-04)
+
+
+### Bug Fixes
+
+* remove claude-review workflow — replaced by Gemini + Copilot ([#132](https://github.com/JacobPEvans/orbstack-kubernetes/issues/132)) ([1bcecec](https://github.com/JacobPEvans/orbstack-kubernetes/commit/1bcecec2375c77c815daa9dd911a40861e62750a))
+
 ## [1.5.6](https://github.com/JacobPEvans/orbstack-kubernetes/compare/v1.5.5...v1.5.6) (2026-04-02)
 
 
