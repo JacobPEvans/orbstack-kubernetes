@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.7.0](https://github.com/JacobPEvans/orbstack-kubernetes/compare/v1.6.0...v1.7.0) (2026-04-07)
+
+
+### Features
+
+* add AI merge gate and Copilot setup steps ([#135](https://github.com/JacobPEvans/orbstack-kubernetes/issues/135)) ([4ea3e23](https://github.com/JacobPEvans/orbstack-kubernetes/commit/4ea3e2368e57ce2afd29ceb05178dec89cfc96e0))
+
 ## [1.6.0](https://github.com/JacobPEvans/orbstack-kubernetes/compare/v1.5.7...v1.6.0) (2026-04-04)
 
 
