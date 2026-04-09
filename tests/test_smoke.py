@@ -9,6 +9,7 @@ import json
 import pytest
 import requests
 from conftest import (
+    BIFROST_URL,
     MCP_NODEPORT_URL,
     PF_EDGE_HEALTH,
     PF_OTEL_HEALTH,
@@ -38,6 +39,8 @@ EXPECTED_NETWORK_POLICIES = [
     "allow-stream-ui-ingress",
     "allow-mcp-egress",
     "allow-mcp-ingress",
+    "allow-bifrost-egress",
+    "allow-bifrost-ingress",
     "allow-heartbeat-egress",
     "allow-heartbeat-splunk-egress",
     "allow-heartbeat-edge-egress",
@@ -230,6 +233,33 @@ class TestMcpServerNodePort:
             f"Expected protocolVersion '2025-03-26', got: '{result.get('protocolVersion')}'"
         )
         assert "serverInfo" in result, f"Expected 'serverInfo' in result, got: {result}"
+
+
+@pytest.mark.usefixtures("cluster_ready")
+class TestBifrostHealth:
+    def test_bifrost_nodeport_service(self):
+        """Bifrost NodePort service should expose API on :30080."""
+        data = kubectl_json("get", "service", "bifrost-nodeport")
+        port_map = {p["name"]: p.get("nodePort") for p in data["spec"]["ports"]}
+        assert 30080 in port_map.values(), f"Expected NodePort 30080, got: {port_map}"
+
+    def test_bifrost_health_endpoint(self):
+        """Bifrost /health should return 200 via NodePort :30080."""
+        try:
+            resp = requests.get(f"{BIFROST_URL}/health", timeout=5)
+        except requests.exceptions.ConnectionError as exc:
+            pytest.fail(f"Cannot connect to Bifrost at {BIFROST_URL}: {exc}")
+        assert resp.status_code == 200, f"Bifrost health returned {resp.status_code}"
+
+    def test_bifrost_models_endpoint(self):
+        """Bifrost /v1/models should return available models."""
+        try:
+            resp = requests.get(f"{BIFROST_URL}/v1/models", timeout=5)
+        except requests.exceptions.ConnectionError as exc:
+            pytest.fail(f"Cannot connect to Bifrost at {BIFROST_URL}: {exc}")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "data" in data, f"Expected 'data' key in models response"
 
 
 @pytest.mark.usefixtures("cluster_ready")

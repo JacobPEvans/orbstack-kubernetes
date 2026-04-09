@@ -181,6 +181,17 @@ else
 fi
 echo ""
 
+# Step 2.5: Apply Doppler operator resources (CRDs not in kustomize base)
+echo "--- Step 2.5: Applying Doppler operator resources ---"
+if kubectl --context "$CONTEXT" api-resources --api-group=secrets.doppler.com 2>/dev/null | grep -q DopplerSecret; then
+  kubectl --context "$CONTEXT" apply -f "$REPO_ROOT/k8s/monitoring/bifrost/doppler-secret.yaml"
+  echo "  Applied: bifrost-provider-keys DopplerSecret"
+else
+  echo "  SKIPPED: DopplerSecret (Doppler operator not installed)"
+  echo "           Install: kubectl apply -f https://github.com/DopplerHQ/kubernetes-operator/releases/latest/download/recommended.yaml"
+fi
+echo ""
+
 # Step 3: Apply kustomize
 echo "--- Step 3: Applying kustomize overlay ---"
 kubectl --context "$CONTEXT" apply -k "$REPO_ROOT/k8s/overlays/local/"
@@ -195,7 +206,8 @@ kubectl --context "$CONTEXT" -n "$NAMESPACE" rollout restart \
   statefulset/cribl-edge-standalone \
   statefulset/cribl-stream-standalone \
   statefulset/cribl-edge-managed \
-  statefulset/cribl-mcp-server
+  statefulset/cribl-mcp-server \
+  statefulset/bifrost
 echo ""
 
 # Step 4: Wait for rollouts
@@ -210,9 +222,10 @@ declare -A timeouts=(
   # startupProbe budget = 10s + 120×10s = 1210s; deploy timeout must exceed that.
   [cribl-stream-standalone]=1500s
   [cribl-mcp-server]=120s
+  [bifrost]=120s
 )
 
-for name in otel-collector cribl-edge-managed cribl-edge-standalone cribl-stream-standalone cribl-mcp-server; do
+for name in otel-collector cribl-edge-managed cribl-edge-standalone cribl-stream-standalone cribl-mcp-server bifrost; do
   kubectl --context "$CONTEXT" -n "$NAMESPACE" rollout status "statefulset/$name" --timeout="${timeouts[$name]}"
 done
 echo ""
@@ -226,6 +239,8 @@ echo "  OTEL HTTP:                   localhost:30318"
 echo "  Cribl Stream Standalone UI:  http://localhost:30900  (admin / CRIBL_STREAM_PASSWORD)"
 echo "  Cribl Edge Standalone UI:    http://localhost:30910"
 echo "  Cribl MCP Server:            http://localhost:30030/mcp"
+echo "  Bifrost AI Gateway:          http://localhost:30080"
+echo "  Bifrost API:                 http://localhost:30080/v1/chat/completions"
 echo ""
 echo "Verify:"
 echo "  kubectl --context $CONTEXT get all -n $NAMESPACE"

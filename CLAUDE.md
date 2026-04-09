@@ -40,7 +40,7 @@ Four CronJobs ping [healthchecks.io](https://healthchecks.io) every 5 minutes as
 `pipeline-heartbeat` (Stream), `heartbeat-splunk`, `heartbeat-edge`, `heartbeat-otel`.
 Ping URLs stored in SOPS (`HEALTHCHECKS_*_URL` keys), injected as `heartbeat-config` secret by `deploy.sh`.
 
-Five StatefulSets in the monitoring namespace:
+Six StatefulSets in the monitoring namespace:
 
 | StatefulSet | Role | UI |
 |------------|------|-----|
@@ -49,6 +49,7 @@ Five StatefulSets in the monitoring namespace:
 | `cribl-edge-standalone` | Local edge with 3 packs ([claude-code-otel](https://github.com/JacobPEvans/cc-edge-claude-code-otel), [gemini-antigravity-io](https://github.com/JacobPEvans/cc-edge-gemini-antigravity-io), [vscode-io](https://github.com/JacobPEvans/cc-edge-vscode-io)), forwards to Cribl Stream Standalone | :30910 |
 | `cribl-stream-standalone` | Local Stream leader with UI, [Copilot REST collector](https://github.com/JacobPEvans/cc-stream-github-copilot-rest-io) pack, outputs to Splunk HEC | :30900 |
 | `cribl-mcp-server` | Cribl Cloud MCP API server for Claude Code | :30030 |
+| `bifrost` | [Bifrost](https://github.com/maximhq/bifrost) AI gateway — multi-provider routing (OpenAI, Gemini, OpenRouter, local MLX) via OpenAI-compatible API. Secrets from Doppler K8s Operator. | :30080 |
 
 Directory layout:
 
