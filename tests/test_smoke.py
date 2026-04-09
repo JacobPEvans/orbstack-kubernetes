@@ -261,7 +261,7 @@ class TestBifrostHealth:
         content_type = resp.headers.get("content-type", "")
         assert "json" in content_type, f"Expected JSON content-type, got: {content_type}"
         data = resp.json()
-        assert "data" in data, f"Expected 'data' key in models response"
+        assert "data" in data, "Expected 'data' key in models response"
 
 
 @pytest.mark.usefixtures("cluster_ready")
