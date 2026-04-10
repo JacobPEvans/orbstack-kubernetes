@@ -264,15 +264,11 @@ class TestBifrostHealth:
             resp = requests.get(f"{BIFROST_URL}/v1/models", timeout=5)
         except requests.exceptions.ConnectionError as exc:
             pytest.fail(f"Cannot connect to Bifrost at {BIFROST_URL}: {exc}")
-        assert resp.status_code < 500, (
-            f"Bifrost /v1/models returned server error {resp.status_code}: {resp.text[:200]}"
-        )
+        assert resp.status_code < 500, f"Bifrost /v1/models returned server error {resp.status_code}: {resp.text[:200]}"
         content_type = resp.headers.get("content-type", "")
         assert "json" in content_type, f"Expected JSON content-type, got: {content_type}"
         data = resp.json()
-        assert "data" in data or "error" in data, (
-            f"Expected 'data' or 'error' key in /v1/models response, got: {data}"
-        )
+        assert "data" in data or "error" in data, f"Expected 'data' or 'error' key in /v1/models response, got: {data}"
 
 
 @pytest.mark.usefixtures("cluster_ready")
