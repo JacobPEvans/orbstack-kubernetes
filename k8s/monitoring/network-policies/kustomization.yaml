@@ -14,3 +14,5 @@ resources:
   - allow-stream-ui-ingress.yaml
   - allow-mcp-egress.yaml
   - allow-mcp-ingress.yaml
+  - allow-bifrost-egress.yaml
+  - allow-bifrost-ingress.yaml

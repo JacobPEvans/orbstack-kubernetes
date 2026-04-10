@@ -31,12 +31,16 @@ PF_STREAM_OUTPUTS = 19424
 # MCP server NodePort — accessed directly from macOS (not via port-forward).
 MCP_NODEPORT_URL = f"http://{K8S_HOST}:30030/mcp"
 
+# Bifrost AI Gateway NodePort — accessed directly from macOS (not via port-forward).
+BIFROST_URL = f"http://{K8S_HOST}:30080"
+
 STATEFULSETS = [
     "otel-collector",
     "cribl-edge-managed",
     "cribl-edge-standalone",
     "cribl-stream-standalone",
     "cribl-mcp-server",
+    "bifrost",
 ]
 
 

@@ -7,7 +7,7 @@
 
 * add AI merge gate and Copilot setup steps ([#135](https://github.com/JacobPEvans/orbstack-kubernetes/issues/135)) ([4ea3e23](https://github.com/JacobPEvans/orbstack-kubernetes/commit/4ea3e2368e57ce2afd29ceb05178dec89cfc96e0))
 
-## [1.6.0](https://github.com/JacobPEvans/orbstack-kubernetes/compare/v1.5.7...v1.6.0) (2026-04-04)
+## [1.6.0](https://github.com/JacobPEvans/orbstack-kubernetes/compare/226489b...v1.6.0) (2026-04-04)
 
 
 ### Features
@@ -80,7 +80,7 @@
 * use host.orb.internal for Splunk HEC and refactor Cribl config ([#20](https://github.com/JacobPEvans/orbstack-kubernetes/issues/20)) ([fbe600d](https://github.com/JacobPEvans/orbstack-kubernetes/commit/fbe600d6e6593111a434ed07a797a62f7c8ec42c))
 * use nix-devenv kubernetes shell instead of local flake.nix ([#127](https://github.com/JacobPEvans/orbstack-kubernetes/issues/127)) ([12d0622](https://github.com/JacobPEvans/orbstack-kubernetes/commit/12d0622a7eb8207ea2031795290c6de240a2edd0))
 
-## [1.5.7](https://github.com/JacobPEvans/orbstack-kubernetes/compare/v1.5.6...v1.5.7) (2026-04-04)
+## [1.5.7](https://github.com/JacobPEvans/orbstack-kubernetes/compare/v1.5.6...226489b) (2026-04-04)
 
 
 ### Bug Fixes
