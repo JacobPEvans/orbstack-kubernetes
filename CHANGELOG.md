@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.8.0](https://github.com/JacobPEvans/orbstack-kubernetes/compare/v1.7.0...v1.8.0) (2026-04-10)
+
+
+### Features
+
+* add Bifrost AI gateway with Doppler K8s Operator ([#138](https://github.com/JacobPEvans/orbstack-kubernetes/issues/138)) ([9f4db90](https://github.com/JacobPEvans/orbstack-kubernetes/commit/9f4db90a41458de485b2220771417899f7cccb25))
+
 ## [1.7.0](https://github.com/JacobPEvans/orbstack-kubernetes/compare/v1.6.0...v1.7.0) (2026-04-07)
 
 
