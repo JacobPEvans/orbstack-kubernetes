@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.8.5](https://github.com/JacobPEvans/orbstack-kubernetes/compare/v1.8.4...v1.8.5) (2026-04-11)
+
+
+### Bug Fixes
+
+* **runner:** permanent self-hosted runner via EPHEMERAL=1 + LaunchAgent ([#142](https://github.com/JacobPEvans/orbstack-kubernetes/issues/142)) ([b3df31d](https://github.com/JacobPEvans/orbstack-kubernetes/commit/b3df31dc9a76e66fe40d8251f23a5d3f0f6a82ba))
+
 ## [1.8.4](https://github.com/JacobPEvans/orbstack-kubernetes/compare/v1.8.3...v1.8.4) (2026-04-11)
 
 
