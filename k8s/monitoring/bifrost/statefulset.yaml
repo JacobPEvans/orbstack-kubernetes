@@ -89,6 +89,11 @@ spec:
             limits:
               memory: "512Mi"
               ephemeral-storage: "1Gi"
+          # Probe timeoutSeconds bumped from default 1 to give /health
+          # headroom under extreme concurrent load. /health itself is a
+          # lightweight DB-ping check that normally returns in ~10 ms.
+          # startupProbe uses timeoutSeconds=4 (strictly less than the
+          # 5 s periodSeconds) to prevent overlapping probe execution.
           startupProbe:
             httpGet:
               path: /health
@@ -96,6 +101,7 @@ spec:
             initialDelaySeconds: 5
             periodSeconds: 5
             failureThreshold: 12
+            timeoutSeconds: 4
           livenessProbe:
             httpGet:
               path: /health
@@ -103,6 +109,7 @@ spec:
             initialDelaySeconds: 15
             periodSeconds: 30
             failureThreshold: 3
+            timeoutSeconds: 5
           readinessProbe:
             httpGet:
               path: /health
@@ -110,6 +117,7 @@ spec:
             initialDelaySeconds: 10
             periodSeconds: 10
             failureThreshold: 5
+            timeoutSeconds: 5
       volumes:
         - name: config-ro
           configMap:
