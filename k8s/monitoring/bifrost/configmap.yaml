@@ -19,16 +19,6 @@ data:
             }
           ]
         },
-        "anthropic": {
-          "keys": [
-            {
-              "name": "anthropic-primary",
-              "value": "env.ANTHROPIC_API_KEY",
-              "models": [],
-              "weight": 1.0
-            }
-          ]
-        },
         "gemini": {
           "keys": [
             {
