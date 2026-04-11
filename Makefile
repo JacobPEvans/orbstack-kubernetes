@@ -206,15 +206,15 @@ runner-doctor-github:
 
 runner-doctor-mounts:
 	@echo "─── Mounts inside container ───"
-	docker exec orbstack-runner test -f /home/runner/.kube/config
+	docker exec orbstack-runner test -f /root/.kube/config
 	@echo "  kubeconfig: OK"
-	docker exec orbstack-runner test -f /home/runner/.config/sops/age/keys.txt
+	docker exec orbstack-runner test -f /root/.config/sops/age/keys.txt
 	@echo "  SOPS age key: OK"
 
 runner-doctor-cluster:
 	@echo "─── Cluster reachability from container ───"
 	docker exec orbstack-runner getent hosts k8s.orb.local
-	docker exec orbstack-runner grep -q k8s.orb.local /home/runner/.kube/config
+	docker exec orbstack-runner grep -q k8s.orb.local /root/.kube/config
 	@echo "  k8s.orb.local: resolvable + present in kubeconfig"
 
 runner-doctor-launchagent:
