@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.8.2](https://github.com/JacobPEvans/orbstack-kubernetes/compare/v1.8.1...v1.8.2) (2026-04-11)
+
+
+### Bug Fixes
+
+* **bifrost:** raise mlx-local upstream timeout to 300s ([#143](https://github.com/JacobPEvans/orbstack-kubernetes/issues/143)) ([105a0b3](https://github.com/JacobPEvans/orbstack-kubernetes/commit/105a0b34c69402f5de5515cf26aa5a6de0179420))
+
 ## [1.8.1](https://github.com/JacobPEvans/orbstack-kubernetes/compare/v1.8.0...v1.8.1) (2026-04-11)
 
 
