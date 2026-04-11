@@ -1,4 +1,4 @@
-.PHONY: help validate validate-schemas generate-overlay deploy deploy-doppler status logs build-images test test-e2e test-smoke test-pipeline test-forwarding test-sourcetypes test-unit test-all test-setup warmup warmup-e2e full-power power-save power-status monitoring-up monitoring-down clean runner-pull runner-kubeconfig runner-foreground runner-start runner-stop runner-status runner-logs runner-doctor runner-doctor-container runner-doctor-github runner-doctor-mounts runner-doctor-cluster runner-doctor-launchagent runner-install-launchagent runner-uninstall-launchagent
+.PHONY: help validate validate-schemas generate-overlay deploy deploy-doppler status logs build-images test test-e2e test-smoke test-pipeline test-forwarding test-sourcetypes test-unit test-all test-setup warmup warmup-e2e full-power power-save power-status monitoring-up monitoring-down clean runner-pull runner-kubeconfig runner-foreground runner-start runner-stop runner-status runner-logs runner-doctor runner-doctor-container runner-doctor-github runner-doctor-mounts runner-doctor-cluster runner-doctor-launchagent runner-install-launchagent runner-uninstall-launchagent runner-print-label
 
 CONTEXT ?= orbstack
 NAMESPACE := monitoring
@@ -146,8 +146,14 @@ clean: ## Delete monitoring and sandbox namespaces (destructive!)
 RUNNER_COMPOSE := docker/actions-runner/docker-compose.yml
 RUNNER_PROJECT := orbstack-runner
 RUNNER_CONTAINER := orbstack-runner
-RUNNER_PLIST_TEMPLATE := docker/actions-runner/com.jacobpevans.orbstack-runner.plist.template
-RUNNER_PLIST_LABEL := com.jacobpevans.orbstack-runner
+RUNNER_PLIST_TEMPLATE := docker/actions-runner/orbstack-runner.plist.template
+# RUNNER_OWNER: lowercase owner derived from GITHUB_REPO.
+# Substituted into the plist template at install time to produce a reverse-DNS
+# LaunchAgent Label (com.<owner>.orbstack-runner). Overridable via
+# `make RUNNER_OWNER=foo runner-install-launchagent` for unusual setups.
+# Run `make runner-print-label` to see the resolved Label.
+RUNNER_OWNER ?= $(shell echo $(GITHUB_REPO) | cut -d/ -f1 | tr '[:upper:]' '[:lower:]')
+RUNNER_PLIST_LABEL := com.$(RUNNER_OWNER).orbstack-runner
 RUNNER_PLIST_DEST := $(HOME)/Library/LaunchAgents/$(RUNNER_PLIST_LABEL).plist
 RUNNER_LOG_DIR := $(HOME)/Library/Logs/orbstack-runner
 # RUNNER_REPO_ROOT = absolute path the LaunchAgent uses to invoke `make
@@ -225,9 +231,12 @@ runner-doctor-launchagent:
 	@echo "─── LaunchAgent ───"
 	@launchctl print gui/$$(id -u)/$(RUNNER_PLIST_LABEL) >/dev/null 2>&1 && echo "  LaunchAgent: loaded" || echo "  WARN: LaunchAgent not installed (run: make runner-install-launchagent)"
 
+runner-print-label: ## Print the resolved LaunchAgent Label for the current GITHUB_REPO
+	@echo $(RUNNER_PLIST_LABEL)
+
 runner-install-launchagent: ## Install macOS LaunchAgent for boot persistence (idempotent)
 	@mkdir -p "$(HOME)/Library/LaunchAgents" "$(RUNNER_LOG_DIR)"
-	sed -e 's|__HOME__|$(HOME)|g' -e 's|__USER__|'"$$(id -un)"'|g' -e 's|__REPO_ROOT__|$(RUNNER_REPO_ROOT)|g' "$(RUNNER_PLIST_TEMPLATE)" > "$(RUNNER_PLIST_DEST)"
+	sed -e 's|__HOME__|$(HOME)|g' -e 's|__USER__|'"$$(id -un)"'|g' -e 's|__REPO_ROOT__|$(RUNNER_REPO_ROOT)|g' -e 's|__OWNER__|$(RUNNER_OWNER)|g' "$(RUNNER_PLIST_TEMPLATE)" > "$(RUNNER_PLIST_DEST)"
 	chmod 644 "$(RUNNER_PLIST_DEST)"
 	-launchctl bootout gui/$$(id -u)/$(RUNNER_PLIST_LABEL) 2>/dev/null
 	launchctl bootstrap gui/$$(id -u) "$(RUNNER_PLIST_DEST)"

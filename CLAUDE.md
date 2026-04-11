@@ -23,12 +23,12 @@ Kubernetes manifests for local OrbStack cluster.
 
 E2E tests run on a self-hosted ARM64 runner: a stock `myoung34/github-runner:ubuntu-jammy` Docker container with `EPHEMERAL=1`, managed by `docker/actions-runner/docker-compose.yml`. Every job runs in a fresh, single-use container; `restart: unless-stopped` respawns a new one after each job exits.
 
-A macOS LaunchAgent (`com.jacobpevans.orbstack-runner`) provides boot persistence by invoking `make runner-foreground`. After cloning a fresh main worktree, run `make runner-install-launchagent` once to (re-)install the LaunchAgent pointing at that worktree.
+A macOS LaunchAgent (`com.<owner>.orbstack-runner`, where `<owner>` is derived from `GITHUB_REPO`) provides boot persistence by invoking `make runner-foreground`. Run `make runner-print-label` to see the resolved Label. After cloning a fresh main worktree, run `make runner-install-launchagent` once to (re-)install the LaunchAgent pointing at that worktree.
 
 **Recovery cheat-sheet** (full details in `docs/TESTING.md`):
 
 - `make runner-doctor` — deep health check
-- `launchctl kickstart -k gui/$(id -u)/com.jacobpevans.orbstack-runner` — force respawn
+- `launchctl kickstart -k gui/$(id -u)/$(make -s runner-print-label)` — force respawn
 - Logs: `~/Library/Logs/orbstack-runner/{stdout,stderr}.log`
 
 The runner requires the macOS host to be powered on with OrbStack running and Doppler authenticated (it fetches `GH_PAT_RUNNER_TOKEN` from `gh-workflow-tokens/prd`).

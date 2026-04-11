@@ -3,8 +3,11 @@
 <!--
   macOS LaunchAgent for the orbstack-kubernetes self-hosted GitHub Actions runner.
 
-  Installed by `make runner-install-launchagent` (which substitutes __HOME__
-  with the user's actual home directory and bootstraps via launchctl).
+  Installed by `make runner-install-launchagent`, which substitutes four
+  placeholders (__HOME__, __USER__, __REPO_ROOT__, __OWNER__) and bootstraps
+  via launchctl. The Label is a reverse-DNS namespace derived from the
+  lowercase owner of GITHUB_REPO — run `make runner-print-label` to see the
+  resolved Label for the current repo.
 
   Architecture (zero custom code):
     * ProgramArguments invokes `make runner-foreground`. ALL lifecycle logic
@@ -22,12 +25,12 @@
       runner-install-launchagent).
 
   Manual recovery:
-    launchctl kickstart -k gui/$(id -u)/com.jacobpevans.orbstack-runner
+    launchctl kickstart -k gui/$(id -u)/com.__OWNER__.orbstack-runner
 -->
 <plist version="1.0">
 <dict>
     <key>Label</key>
-    <string>com.jacobpevans.orbstack-runner</string>
+    <string>com.__OWNER__.orbstack-runner</string>
 
     <key>ProgramArguments</key>
     <array>

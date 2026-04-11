@@ -35,7 +35,7 @@ The Tier 1–4 jobs execute inside an ephemeral [`myoung34/github-runner:ubuntu-
 
 - **Stock image** with `EPHEMERAL=1` — each registration is single-use: the runner registers, runs ONE job, deregisters cleanly, and exits with code 0 (removing its `.runner` config file on exit). `restart: unless-stopped` in `docker/actions-runner/docker-compose.yml` then restarts the runner container/service so it can register again for the next job. The container is NOT brand-new each time — bind-mounted state persists across jobs, and the container's writable layer is reused. The ephemeral runner's own cleanup is what ensures fresh-looking registration; the restart policy just brings the service back. This eliminates the "Cannot configure: already configured" crash loop that affected the previous setup.
 - **Tools** (kubectl, kustomize, sops, age, yq, doppler, python) come from the workflow's `setup-e2e-tools` composite action, NOT from a custom image.
-- **Boot persistence** is provided by a macOS LaunchAgent (`~/Library/LaunchAgents/com.jacobpevans.orbstack-runner.plist`) installed by `make runner-install-launchagent`. Under normal operation compose stays up and Docker handles the per-job restart cycle; `KeepAlive=true` on the LaunchAgent only respawns `make runner-foreground` if compose itself crashes.
+- **Boot persistence** is provided by a macOS LaunchAgent at `~/Library/LaunchAgents/com.<owner>.orbstack-runner.plist` installed by `make runner-install-launchagent`. The `<owner>` is the lowercase owner of `GITHUB_REPO` — run `make runner-print-label` to see the resolved Label. Under normal operation compose stays up and Docker handles the per-job restart cycle; `KeepAlive=true` on the LaunchAgent only respawns `make runner-foreground` if compose itself crashes.
 
 **Operations:**
 
@@ -53,8 +53,8 @@ make runner-uninstall-launchagent  # remove LaunchAgent
 
 **Recovery:**
 
-- **Container failed?** `launchctl kickstart -k gui/$(id -u)/com.jacobpevans.orbstack-runner` forces the LaunchAgent to respawn the runner.
-- **Registration stuck?** Delete the orphan via `GH_TOKEN=$(doppler secrets get GH_PAT_RUNNER_TOKEN --plain -p gh-workflow-tokens -c prd) gh api -X DELETE repos/JacobPEvans/orbstack-kubernetes/actions/runners/<id>`, then `launchctl kickstart -k ...`.
+- **Container failed?** `launchctl kickstart -k gui/$(id -u)/$(make -s runner-print-label)` forces the LaunchAgent to respawn the runner.
+- **Registration stuck?** Delete the orphan via `GH_TOKEN=$(doppler secrets get GH_PAT_RUNNER_TOKEN --plain -p gh-workflow-tokens -c prd) gh api -X DELETE "repos/${GITHUB_REPO}/actions/runners/<id>"`, then `launchctl kickstart -k ...`. Export `GITHUB_REPO` first or substitute your repo slug directly (e.g., from `make -n runner-status`).
 - **LaunchAgent not loaded?** Run `make runner-install-launchagent` from the worktree you want it to point at (typically `~/git/orbstack-kubernetes/main`).
 - **Logs:** `~/Library/Logs/orbstack-runner/{stdout,stderr}.log`.
 

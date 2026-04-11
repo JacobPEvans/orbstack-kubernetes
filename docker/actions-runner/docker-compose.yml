@@ -18,8 +18,10 @@
 #     runner's own cleanup is what ensures fresh-looking registration; the
 #     restart policy just brings the service back for the next job.
 #   * Boot persistence is provided by the macOS LaunchAgent
-#     ~/Library/LaunchAgents/com.jacobpevans.orbstack-runner.plist
+#     ~/Library/LaunchAgents/com.<owner>.orbstack-runner.plist (derived from
+#     the lowercase owner of GITHUB_REPO by the Makefile at install time)
 #     which runs `make runner-foreground` (foreground compose up).
+#     Run `make runner-print-label` to see the resolved Label.
 #
 # Required env (injected by `doppler run -p gh-workflow-tokens -c prd`):
 #   GH_PAT_RUNNER_TOKEN — fine-grained PAT, Administration:Read&Write
@@ -49,14 +51,14 @@ services:
       # ─── Path-mirroring strategy ───────────────────────────────────────────
       # The container bind-mounts the macOS user home in-place so paths are
       # IDENTICAL across:
-      #   * the runner container's filesystem (e.g. /Users/jevans/.gemini)
+      #   * the runner container's filesystem (e.g. ${HOME}/.gemini)
       #   * the macOS host
       #   * the orbstack k3s VM (which mounts /Users via OrbStack)
       # This makes hostPath-based tests work transparently — the test writes
-      # to /Users/jevans/.gemini/... inside the runner container, and the
-      # deployed pod sees the same file via its hostPath mount.
+      # to ${HOME}/.gemini/... inside the runner container, and the deployed
+      # pod sees the same file via its hostPath mount.
       # DEPLOY_HOME_DIR is the macOS host's HOME so generate-overlay.sh and
-      # the gemini sentinel test resolve to /Users/jevans/... not /root/...
+      # the gemini sentinel test resolve to the host path rather than /root.
       DEPLOY_HOME_DIR: ${HOME}
       CLAUDE_HOME: ${HOME}
       K8S_NODEPORT_HOST: k8s.orb.local
