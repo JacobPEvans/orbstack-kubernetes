@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.8.4](https://github.com/JacobPEvans/orbstack-kubernetes/compare/v1.8.3...v1.8.4) (2026-04-11)
+
+
+### Bug Fixes
+
+* **bifrost:** use clean multiples of 10 for all probe timings ([#151](https://github.com/JacobPEvans/orbstack-kubernetes/issues/151)) ([ac83350](https://github.com/JacobPEvans/orbstack-kubernetes/commit/ac83350ef989ad6ef6cbb5f44f40821a86efe2a2))
+
 ## [1.8.3](https://github.com/JacobPEvans/orbstack-kubernetes/compare/v1.8.2...v1.8.3) (2026-04-11)
 
 
