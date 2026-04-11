@@ -41,25 +41,33 @@ services:
       EPHEMERAL: "1"
       DISABLE_AUTO_UPDATE: "1"
       ACCESS_TOKEN: ${GH_PAT_RUNNER_TOKEN:?GH_PAT_RUNNER_TOKEN must be set (use doppler run -p gh-workflow-tokens -c prd)}
-      # The myoung34 image runs as root, so HOME=/root inside the container.
-      # All mount paths and env-var-referenced paths must use /root, not /home/runner.
-      DEPLOY_HOME_DIR: /root
-      CLAUDE_HOME: /root
+      # ─── Path-mirroring strategy ───────────────────────────────────────────
+      # The container bind-mounts the macOS user home in-place so paths are
+      # IDENTICAL across:
+      #   * the runner container's filesystem (e.g. /Users/jevans/.gemini)
+      #   * the macOS host
+      #   * the orbstack k3s VM (which mounts /Users via OrbStack)
+      # This makes hostPath-based tests work transparently — the test writes
+      # to /Users/jevans/.gemini/... inside the runner container, and the
+      # deployed pod sees the same file via its hostPath mount.
+      # DEPLOY_HOME_DIR is the macOS host's HOME so generate-overlay.sh and
+      # the gemini sentinel test resolve to /Users/jevans/... not /root/...
+      DEPLOY_HOME_DIR: ${HOME}
+      CLAUDE_HOME: ${HOME}
       K8S_NODEPORT_HOST: k8s.orb.local
       KUBECONFIG: /root/.kube/config
       SOPS_AGE_KEY_FILE: /root/.config/sops/age/keys.txt
     volumes:
       # Docker socket — required because some workflow steps build/run containers
       - /var/run/docker.sock:/var/run/docker.sock
-      # SOPS age key for decrypting secrets.enc.yaml
+      # SOPS age key — mounted at root's default location so sops finds it
+      # via its built-in fallback search (no reliance on env-var inheritance
+      # across composite-action subprocess boundaries).
       - ${HOME}/.config/sops/age:/root/.config/sops/age:ro
       # Kubeconfig with k8s.orb.local rewritten from 127.0.0.1
       # (refreshed by `make runner-kubeconfig` before each compose up)
       - ${HOME}/.config/runner-kubeconfig:/root/.kube/config:ro
-      # Persisted Claude Code + Gemini CLI state for AI-assisted CI tasks
-      - ${HOME}/.claude/projects:/root/.claude/projects:rw
-      - ${HOME}/.claude/logs:/root/.claude/logs:rw
-      - ${HOME}/.claude/plans:/root/.claude/plans:rw
-      - ${HOME}/.claude/tasks:/root/.claude/tasks:rw
-      - ${HOME}/.claude/teams:/root/.claude/teams:rw
-      - ${HOME}/.gemini:/root/.gemini:rw
+      # In-place mount of Claude Code + Gemini CLI state. Same path on macOS,
+      # in the container, AND on the orbstack k3s VM hostPath mounts.
+      - ${HOME}/.claude:${HOME}/.claude:rw
+      - ${HOME}/.gemini:${HOME}/.gemini:rw
