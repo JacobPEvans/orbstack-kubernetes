@@ -70,6 +70,12 @@ repos:
     hooks:
       - id: cspell
         name: Check spelling
+        additional_dependencies:
+          # Upstream dictionaries not bundled with cspell. Keeps .cspell.json
+          # words list small and focused on project-specific terminology.
+          - "@cspell/dict-k8s"
+          - "@cspell/dict-docker"
+          - "@cspell/dict-shell"
 
   # ---------------------------------------------------------------------------
   # YAML linting

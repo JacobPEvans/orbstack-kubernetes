@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  macOS LaunchAgent for the orbstack-kubernetes self-hosted GitHub Actions runner.
+
+  Installed by `make runner-install-launchagent`, which substitutes four
+  placeholders (__HOME__, __USER__, __REPO_ROOT__, __OWNER__) and bootstraps
+  via launchctl. The Label is a reverse-DNS namespace derived from the
+  lowercase owner of GITHUB_REPO — run `make runner-print-label` to see the
+  resolved Label for the current repo.
+
+  Architecture (zero custom code):
+    * ProgramArguments invokes `make runner-foreground`. ALL lifecycle logic
+      lives in the Makefile — this plist is a pure manifest.
+    * KeepAlive=true: if `make runner-foreground` itself exits (e.g. the
+      doppler+compose invocation returns), launchd respawns it after
+      ThrottleInterval. Under normal ephemeral operation compose stays up
+      and Docker restarts the same container (per `restart: unless-stopped`
+      in docker-compose.yml); launchd only steps in when compose crashes
+      or `make` exits non-zero.
+    * Absolute PATH covers Nix user profile, homebrew, and system locations
+      because LaunchAgents run with a minimal environment.
+    * Working directory is the repo root so make finds the Makefile.
+    * Logs go to ~/Library/Logs/orbstack-runner/ (auto-created by make
+      runner-install-launchagent).
+
+  Manual recovery:
+    launchctl kickstart -k gui/$(id -u)/com.__OWNER__.orbstack-runner
+-->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.__OWNER__.orbstack-runner</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/usr/bin/make</string>
+        <string>-C</string>
+        <string>__REPO_ROOT__</string>
+        <string>runner-foreground</string>
+    </array>
+
+    <key>RunAtLoad</key>
+    <true/>
+
+    <key>KeepAlive</key>
+    <true/>
+
+    <key>ThrottleInterval</key>
+    <integer>30</integer>
+
+    <key>ProcessType</key>
+    <string>Interactive</string>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <!--
+          PATH covers: Nix per-user profile (nix-darwin), Nix user profile,
+          Homebrew (Apple Silicon), Homebrew (Intel), and macOS system dirs.
+          Sequence matters — Nix profiles take precedence so that the
+          home-manager versions of doppler/kubectl/gh win.
+        -->
+        <key>PATH</key>
+        <string>/etc/profiles/per-user/__USER__/bin:__HOME__/.nix-profile/bin:/run/current-system/sw/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+        <key>HOME</key>
+        <string>__HOME__</string>
+    </dict>
+
+    <key>WorkingDirectory</key>
+    <string>__REPO_ROOT__</string>
+
+    <key>StandardOutPath</key>
+    <string>__HOME__/Library/Logs/orbstack-runner/stdout.log</string>
+
+    <key>StandardErrorPath</key>
+    <string>__HOME__/Library/Logs/orbstack-runner/stderr.log</string>
+</dict>
+</plist>

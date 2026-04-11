@@ -1,0 +1,83 @@
+---
+# Self-hosted GitHub Actions runner for orbstack-kubernetes E2E tests.
+#
+# Architecture (zero custom code):
+#   * Stock myoung34/github-runner image (multi-arch, includes the
+#     actions-runner binary). Tools (kubectl/sops/age/yq/doppler/python)
+#     are installed PER-JOB by .github/actions/setup-e2e-tools, so the
+#     image needs no customization.
+#   * EPHEMERAL=1 makes each runner registration single-use: the entrypoint
+#     registers, runs ONE job, deregisters cleanly, and the actions-runner
+#     process exits 0. The ephemeral runner also removes its `.runner`
+#     config file on exit, so the next startup re-registers fresh. This
+#     eliminates the "Cannot configure: already configured" crash loop that
+#     plagued the previous setup.
+#   * `restart: unless-stopped` makes Docker restart the runner container
+#     after each job exit (NOT a brand-new container — same writable layer).
+#     Bind-mounted state persists across jobs by design. The ephemeral
+#     runner's own cleanup is what ensures fresh-looking registration; the
+#     restart policy just brings the service back for the next job.
+#   * Boot persistence is provided by the macOS LaunchAgent
+#     ~/Library/LaunchAgents/com.<owner>.orbstack-runner.plist (derived from
+#     the lowercase owner of GITHUB_REPO by the Makefile at install time)
+#     which runs `make runner-foreground` (foreground compose up).
+#     Run `make runner-print-label` to see the resolved Label.
+#
+# Required env (injected by `doppler run -p gh-workflow-tokens -c prd`):
+#   GH_PAT_RUNNER_TOKEN — fine-grained PAT, Administration:Read&Write
+#                         (mapped to ACCESS_TOKEN inside the container)
+#
+# Lifecycle commands (all in the Makefile):
+#   make runner-start                  → boot in background (manual use)
+#   make runner-foreground             → boot in foreground (LaunchAgent uses this)
+#   make runner-stop                   → stop the container
+#   make runner-doctor                 → deep health check
+#   make runner-install-launchagent    → install boot-persistence LaunchAgent
+services:
+  runner:
+    container_name: orbstack-runner
+    # Pinned to ubuntu-jammy (22.04) — `latest` resolves to ubuntu-focal (20.04)
+    # which lacks arm64 builds for Python 3.14 used by setup-e2e-tools.
+    image: myoung34/github-runner:ubuntu-jammy
+    restart: unless-stopped
+    environment:
+      RUNNER_SCOPE: repo
+      REPO_URL: https://github.com/${GITHUB_REPO:-JacobPEvans/orbstack-kubernetes}
+      RUNNER_NAME: orbstack-runner
+      LABELS: self-hosted,Linux,ARM64
+      EPHEMERAL: "1"
+      DISABLE_AUTO_UPDATE: "1"
+      ACCESS_TOKEN: ${GH_PAT_RUNNER_TOKEN:?GH_PAT_RUNNER_TOKEN must be set (use doppler run -p gh-workflow-tokens -c prd)}
+      # ─── Path-mirroring strategy ───────────────────────────────────────────
+      # The container bind-mounts the macOS user home in-place so paths are
+      # IDENTICAL across:
+      #   * the runner container's filesystem (e.g. ${HOME}/.gemini)
+      #   * the macOS host
+      #   * the orbstack k3s VM (which mounts /Users via OrbStack)
+      # This makes hostPath-based tests work transparently — the test writes
+      # to ${HOME}/.gemini/... inside the runner container, and the deployed
+      # pod sees the same file via its hostPath mount.
+      # DEPLOY_HOME_DIR is the macOS host's HOME so generate-overlay.sh and
+      # the gemini sentinel test resolve to the host path rather than /root.
+      DEPLOY_HOME_DIR: ${HOME}
+      CLAUDE_HOME: ${HOME}
+      K8S_NODEPORT_HOST: k8s.orb.local
+      KUBECONFIG: /root/.kube/config
+      SOPS_AGE_KEY_FILE: /root/.config/sops/age/keys.txt
+    volumes:
+      # NOTE: /var/run/docker.sock is deliberately NOT mounted — the e2e
+      # workflow only uses kubectl/sops/yq/python, not docker commands, and
+      # socket mounts grant root-equivalent host access (container escape).
+      # Dockerfile scanning (trivy) runs in a separate ubuntu-latest job.
+      #
+      # SOPS age key — mounted at root's default location so sops finds it
+      # via its built-in fallback search (no reliance on env-var inheritance
+      # across composite-action subprocess boundaries).
+      - ${HOME}/.config/sops/age:/root/.config/sops/age:ro
+      # Kubeconfig with k8s.orb.local rewritten from 127.0.0.1
+      # (refreshed by `make runner-kubeconfig` before each compose up)
+      - ${HOME}/.config/runner-kubeconfig:/root/.kube/config:ro
+      # In-place mount of Claude Code + Gemini CLI state. Same path on macOS,
+      # in the container, AND on the orbstack k3s VM hostPath mounts.
+      - ${HOME}/.claude:${HOME}/.claude:rw
+      - ${HOME}/.gemini:${HOME}/.gemini:rw
