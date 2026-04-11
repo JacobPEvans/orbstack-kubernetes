@@ -91,33 +91,34 @@ spec:
               ephemeral-storage: "1Gi"
           # Health-probe timings. All probes hit /health, which is a
           # lightweight DB-ping check that normally returns in ~10 ms.
-          # periodSeconds / initialDelaySeconds are multiples of 10 for
-          # readability; timeoutSeconds gives ~10× headroom over the
-          # expected response time under concurrent load; failureThreshold
-          # is expressed as a retry count rather than a raw time budget.
+          # Timing fields are multiples of 10 for readability;
+          # timeoutSeconds provides generous headroom for transient
+          # latency under concurrent load; failureThreshold is expressed
+          # as a retry count rather than a raw time budget.
+          # livenessProbe and readinessProbe omit initialDelaySeconds
+          # because Kubernetes does not start them until the startupProbe
+          # has succeeded — any initial delay there would be dead time.
           startupProbe:
             httpGet:
               path: /health
               port: 8080
             initialDelaySeconds: 10
             periodSeconds: 20
-            failureThreshold: 6        # ~2 min startup budget (6 × 20 s)
+            failureThreshold: 6        # allow up to 6 failed startup checks
             timeoutSeconds: 10
           livenessProbe:
             httpGet:
               path: /health
               port: 8080
-            initialDelaySeconds: 30
             periodSeconds: 30
-            failureThreshold: 3        # ~90 s tolerance
+            failureThreshold: 3        # 3 consecutive failures before restart
             timeoutSeconds: 10
           readinessProbe:
             httpGet:
               path: /health
               port: 8080
-            initialDelaySeconds: 10
             periodSeconds: 20
-            failureThreshold: 3        # ~60 s tolerance
+            failureThreshold: 3        # 3 consecutive failures before unready
             timeoutSeconds: 10
       volumes:
         - name: config-ro
