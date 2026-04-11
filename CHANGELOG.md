@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.8.1](https://github.com/JacobPEvans/orbstack-kubernetes/compare/v1.8.0...v1.8.1) (2026-04-11)
+
+
+### Bug Fixes
+
+* **bifrost:** drop ANTHROPIC_API_KEY from DopplerSecret ([#140](https://github.com/JacobPEvans/orbstack-kubernetes/issues/140)) ([b91f44b](https://github.com/JacobPEvans/orbstack-kubernetes/commit/b91f44b0ca7af934d12df87e5fbf54e855d798aa))
+
 ## [1.8.0](https://github.com/JacobPEvans/orbstack-kubernetes/compare/v1.7.0...v1.8.0) (2026-04-10)
 
 
