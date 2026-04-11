@@ -1,4 +1,4 @@
-.PHONY: help validate validate-schemas generate-overlay deploy deploy-doppler status logs build-images test test-e2e test-smoke test-pipeline test-forwarding test-sourcetypes test-unit test-all test-setup warmup warmup-e2e full-power power-save power-status monitoring-up monitoring-down clean runner-build runner-kubeconfig runner-start runner-stop runner-status runner-logs runner-doctor runner-install-launchagent runner-uninstall-launchagent
+.PHONY: help validate validate-schemas generate-overlay deploy deploy-doppler status logs build-images test test-e2e test-smoke test-pipeline test-forwarding test-sourcetypes test-unit test-all test-setup warmup warmup-e2e full-power power-save power-status monitoring-up monitoring-down clean runner-pull runner-kubeconfig runner-foreground runner-start runner-stop runner-status runner-logs runner-doctor runner-doctor-container runner-doctor-github runner-doctor-mounts runner-doctor-cluster runner-doctor-launchagent runner-install-launchagent runner-uninstall-launchagent
 
 CONTEXT ?= orbstack
 NAMESPACE := monitoring
@@ -145,6 +145,7 @@ clean: ## Delete monitoring and sandbox namespaces (destructive!)
 
 RUNNER_COMPOSE := docker/actions-runner/docker-compose.yml
 RUNNER_PROJECT := orbstack-runner
+RUNNER_CONTAINER := orbstack-runner
 RUNNER_PLIST_TEMPLATE := docker/actions-runner/com.jacobpevans.orbstack-runner.plist.template
 RUNNER_PLIST_LABEL := com.jacobpevans.orbstack-runner
 RUNNER_PLIST_DEST := $(HOME)/Library/LaunchAgents/$(RUNNER_PLIST_LABEL).plist
@@ -168,15 +169,18 @@ runner-kubeconfig: ## Refresh the runner's kubeconfig (rewrites 127.0.0.1 → k8
 
 runner-foreground: runner-kubeconfig ## Run runner in foreground (used by LaunchAgent)
 	doppler run -p $(DOPPLER_RUNNER_PROJ) -c $(DOPPLER_RUNNER_CONFIG) -- \
-	  docker compose -f $(RUNNER_COMPOSE) -p $(RUNNER_PROJECT) up --abort-on-container-exit
+	  docker compose -f $(RUNNER_COMPOSE) -p $(RUNNER_PROJECT) up
 
 runner-start: runner-kubeconfig ## Start runner in background (manual one-shot)
 	doppler run -p $(DOPPLER_RUNNER_PROJ) -c $(DOPPLER_RUNNER_CONFIG) -- \
 	  docker compose -f $(RUNNER_COMPOSE) -p $(RUNNER_PROJECT) up -d
 
-runner-stop: ## Stop and remove the runner container
-	doppler run -p $(DOPPLER_RUNNER_PROJ) -c $(DOPPLER_RUNNER_CONFIG) -- \
-	  docker compose -f $(RUNNER_COMPOSE) -p $(RUNNER_PROJECT) down --remove-orphans
+# runner-stop uses native `docker rm -f` directly — this avoids loading the
+# compose file (which would fail if doppler is unavailable or the runner
+# token is missing). The network and orphan cleanup is handled by the next
+# `docker compose up`.
+runner-stop: ## Stop and remove the runner container (no doppler/compose required)
+	docker rm -f $(RUNNER_CONTAINER) 2>/dev/null || true
 
 runner-status: ## Show runner container + GitHub registration status
 	@echo "─── Container ───"
@@ -186,7 +190,7 @@ runner-status: ## Show runner container + GitHub registration status
 	gh api repos/$(GITHUB_REPO)/actions/runners --jq '.runners[] | {name, status, labels: [.labels[].name]}'
 
 runner-logs: ## Tail runner container logs
-	docker logs -f orbstack-runner
+	docker logs -f $(RUNNER_CONTAINER)
 
 # Doctor splits into atomic sub-targets so each step uses native commands and
 # Make's built-in error propagation. No embedded bash blob.
@@ -196,25 +200,25 @@ runner-doctor: runner-doctor-container runner-doctor-github runner-doctor-mounts
 
 runner-doctor-container:
 	@echo "─── Container state ───"
-	docker inspect orbstack-runner --format 'state: {{.State.Status}}  restartCount: {{.RestartCount}}  exitCode: {{.State.ExitCode}}'
-	docker inspect orbstack-runner --format '{{eq .State.Status "running"}}' | grep -q '^true$$'
+	docker inspect $(RUNNER_CONTAINER) --format 'state: {{.State.Status}}  restartCount: {{.RestartCount}}  exitCode: {{.State.ExitCode}}'
+	docker inspect $(RUNNER_CONTAINER) --format '{{eq .State.Status "running"}}' | grep -q '^true$$'
 
 runner-doctor-github:
 	@echo "─── GitHub registration ───"
 	gh api repos/$(GITHUB_REPO)/actions/runners --jq '.runners[] | [.name, .status, ([.labels[].name] | join(","))] | @tsv'
-	gh api repos/$(GITHUB_REPO)/actions/runners --jq '[.runners[] | select(.status=="online")] | length' | grep -q -E '^[1-9]'
+	gh api repos/$(GITHUB_REPO)/actions/runners --jq '[.runners[] | select(.name=="$(RUNNER_CONTAINER)" and .status=="online")] | length' | grep -q -E '^[1-9]'
 
 runner-doctor-mounts:
 	@echo "─── Mounts inside container ───"
-	docker exec orbstack-runner test -f /root/.kube/config
+	docker exec $(RUNNER_CONTAINER) test -f /root/.kube/config
 	@echo "  kubeconfig: OK"
-	docker exec orbstack-runner test -f /root/.config/sops/age/keys.txt
+	docker exec $(RUNNER_CONTAINER) test -f /root/.config/sops/age/keys.txt
 	@echo "  SOPS age key: OK"
 
 runner-doctor-cluster:
 	@echo "─── Cluster reachability from container ───"
-	docker exec orbstack-runner getent hosts k8s.orb.local
-	docker exec orbstack-runner grep -q k8s.orb.local /root/.kube/config
+	docker exec $(RUNNER_CONTAINER) getent hosts k8s.orb.local
+	docker exec $(RUNNER_CONTAINER) grep -q k8s.orb.local /root/.kube/config
 	@echo "  k8s.orb.local: resolvable + present in kubeconfig"
 
 runner-doctor-launchagent:
@@ -222,11 +226,11 @@ runner-doctor-launchagent:
 	@launchctl print gui/$$(id -u)/$(RUNNER_PLIST_LABEL) >/dev/null 2>&1 && echo "  LaunchAgent: loaded" || echo "  WARN: LaunchAgent not installed (run: make runner-install-launchagent)"
 
 runner-install-launchagent: ## Install macOS LaunchAgent for boot persistence (idempotent)
-	@mkdir -p $(HOME)/Library/LaunchAgents $(RUNNER_LOG_DIR)
-	sed -e 's|__HOME__|$(HOME)|g' -e 's|__USER__|'"$$(id -un)"'|g' -e 's|__REPO_ROOT__|$(RUNNER_REPO_ROOT)|g' $(RUNNER_PLIST_TEMPLATE) > $(RUNNER_PLIST_DEST)
-	chmod 644 $(RUNNER_PLIST_DEST)
+	@mkdir -p "$(HOME)/Library/LaunchAgents" "$(RUNNER_LOG_DIR)"
+	sed -e 's|__HOME__|$(HOME)|g' -e 's|__USER__|'"$$(id -un)"'|g' -e 's|__REPO_ROOT__|$(RUNNER_REPO_ROOT)|g' "$(RUNNER_PLIST_TEMPLATE)" > "$(RUNNER_PLIST_DEST)"
+	chmod 644 "$(RUNNER_PLIST_DEST)"
 	-launchctl bootout gui/$$(id -u)/$(RUNNER_PLIST_LABEL) 2>/dev/null
-	launchctl bootstrap gui/$$(id -u) $(RUNNER_PLIST_DEST)
+	launchctl bootstrap gui/$$(id -u) "$(RUNNER_PLIST_DEST)"
 	launchctl print gui/$$(id -u)/$(RUNNER_PLIST_LABEL) | grep -E '^\s*(state|pid|path)' || true
 	@echo ""
 	@echo "✓ LaunchAgent installed: $(RUNNER_PLIST_DEST)"
@@ -236,5 +240,5 @@ runner-install-launchagent: ## Install macOS LaunchAgent for boot persistence (i
 
 runner-uninstall-launchagent: ## Uninstall macOS LaunchAgent
 	-launchctl bootout gui/$$(id -u)/$(RUNNER_PLIST_LABEL) 2>/dev/null
-	rm -f $(RUNNER_PLIST_DEST)
+	rm -f "$(RUNNER_PLIST_DEST)"
 	@echo "✓ LaunchAgent uninstalled"

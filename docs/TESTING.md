@@ -33,9 +33,9 @@ The Tier 1–4 jobs execute inside an ephemeral [`myoung34/github-runner:ubuntu-
 
 **Architecture (zero custom code):**
 
-- **Stock image** with `EPHEMERAL=1` — the container registers, runs ONE job, deregisters cleanly, and exits with code 0. `restart: unless-stopped` in `docker/actions-runner/docker-compose.yml` then respawns a fresh container for the next job. This eliminates the "Cannot configure: already configured" crash loop that affected the previous setup.
+- **Stock image** with `EPHEMERAL=1` — each registration is single-use: the runner registers, runs ONE job, deregisters cleanly, and exits with code 0 (removing its `.runner` config file on exit). `restart: unless-stopped` in `docker/actions-runner/docker-compose.yml` then restarts the runner container/service so it can register again for the next job. The container is NOT brand-new each time — bind-mounted state persists across jobs, and the container's writable layer is reused. The ephemeral runner's own cleanup is what ensures fresh-looking registration; the restart policy just brings the service back. This eliminates the "Cannot configure: already configured" crash loop that affected the previous setup.
 - **Tools** (kubectl, kustomize, sops, age, yq, doppler, python) come from the workflow's `setup-e2e-tools` composite action, NOT from a custom image.
-- **Boot persistence** is provided by a macOS LaunchAgent (`~/Library/LaunchAgents/com.jacobpevans.orbstack-runner.plist`) installed by `make runner-install-launchagent`. The LaunchAgent's `KeepAlive=true` respawns `make runner-foreground` after each ephemeral cycle exits.
+- **Boot persistence** is provided by a macOS LaunchAgent (`~/Library/LaunchAgents/com.jacobpevans.orbstack-runner.plist`) installed by `make runner-install-launchagent`. Under normal operation compose stays up and Docker handles the per-job restart cycle; `KeepAlive=true` on the LaunchAgent only respawns `make runner-foreground` if compose itself crashes.
 
 **Operations:**
 

@@ -6,12 +6,17 @@
 #     actions-runner binary). Tools (kubectl/sops/age/yq/doppler/python)
 #     are installed PER-JOB by .github/actions/setup-e2e-tools, so the
 #     image needs no customization.
-#   * EPHEMERAL=1 makes each container single-use: register, run one job,
-#     deregister, exit. This eliminates the "Cannot configure: already
-#     configured" crash loop that plagued the previous setup.
-#   * `restart: unless-stopped` makes compose respawn a fresh container
-#     after each job exit. Combined with EPHEMERAL, every job runs in a
-#     pristine environment — exactly like GitHub-hosted runners.
+#   * EPHEMERAL=1 makes each runner registration single-use: the entrypoint
+#     registers, runs ONE job, deregisters cleanly, and the actions-runner
+#     process exits 0. The ephemeral runner also removes its `.runner`
+#     config file on exit, so the next startup re-registers fresh. This
+#     eliminates the "Cannot configure: already configured" crash loop that
+#     plagued the previous setup.
+#   * `restart: unless-stopped` makes Docker restart the runner container
+#     after each job exit (NOT a brand-new container — same writable layer).
+#     Bind-mounted state persists across jobs by design. The ephemeral
+#     runner's own cleanup is what ensures fresh-looking registration; the
+#     restart policy just brings the service back for the next job.
 #   * Boot persistence is provided by the macOS LaunchAgent
 #     ~/Library/LaunchAgents/com.jacobpevans.orbstack-runner.plist
 #     which runs `make runner-foreground` (foreground compose up).
@@ -35,7 +40,7 @@ services:
     restart: unless-stopped
     environment:
       RUNNER_SCOPE: repo
-      REPO_URL: https://github.com/JacobPEvans/orbstack-kubernetes
+      REPO_URL: https://github.com/${GITHUB_REPO:-JacobPEvans/orbstack-kubernetes}
       RUNNER_NAME: orbstack-runner
       LABELS: self-hosted,Linux,ARM64
       EPHEMERAL: "1"
@@ -58,8 +63,11 @@ services:
       KUBECONFIG: /root/.kube/config
       SOPS_AGE_KEY_FILE: /root/.config/sops/age/keys.txt
     volumes:
-      # Docker socket — required because some workflow steps build/run containers
-      - /var/run/docker.sock:/var/run/docker.sock
+      # NOTE: /var/run/docker.sock is deliberately NOT mounted — the e2e
+      # workflow only uses kubectl/sops/yq/python, not docker commands, and
+      # socket mounts grant root-equivalent host access (container escape).
+      # Dockerfile scanning (trivy) runs in a separate ubuntu-latest job.
+      #
       # SOPS age key — mounted at root's default location so sops finds it
       # via its built-in fallback search (no reliance on env-var inheritance
       # across composite-action subprocess boundaries).

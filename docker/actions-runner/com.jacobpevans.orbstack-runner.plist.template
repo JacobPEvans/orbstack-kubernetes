@@ -9,11 +9,14 @@
   Architecture (zero custom code):
     * ProgramArguments invokes `make runner-foreground`. ALL lifecycle logic
       lives in the Makefile — this plist is a pure manifest.
-    * KeepAlive=true: each ephemeral container exits after one job; launchd
-      respawns make, which respawns compose, which spawns a fresh container.
-      ThrottleInterval prevents tight crash loops if make exits non-zero.
-    * Absolute PATH covers homebrew + system locations because LaunchAgents
-      run with a minimal environment.
+    * KeepAlive=true: if `make runner-foreground` itself exits (e.g. the
+      doppler+compose invocation returns), launchd respawns it after
+      ThrottleInterval. Under normal ephemeral operation compose stays up
+      and Docker restarts the same container (per `restart: unless-stopped`
+      in docker-compose.yml); launchd only steps in when compose crashes
+      or `make` exits non-zero.
+    * Absolute PATH covers Nix user profile, homebrew, and system locations
+      because LaunchAgents run with a minimal environment.
     * Working directory is the repo root so make finds the Makefile.
     * Logs go to ~/Library/Logs/orbstack-runner/ (auto-created by make
       runner-install-launchagent).
