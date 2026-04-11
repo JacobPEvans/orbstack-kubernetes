@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.8.3](https://github.com/JacobPEvans/orbstack-kubernetes/compare/v1.8.2...v1.8.3) (2026-04-11)
+
+
+### Bug Fixes
+
+* **bifrost:** raise probe timeoutSeconds 1→5 for defense in depth ([#147](https://github.com/JacobPEvans/orbstack-kubernetes/issues/147)) ([69e27e0](https://github.com/JacobPEvans/orbstack-kubernetes/commit/69e27e064bfc370eb58ef830ab4b24686825489e))
+
 ## [1.8.2](https://github.com/JacobPEvans/orbstack-kubernetes/compare/v1.8.1...v1.8.2) (2026-04-11)
 
 
