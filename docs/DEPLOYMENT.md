@@ -67,7 +67,7 @@ make deploy-doppler
 
 ## Cribl Stream
 
-- **cribl-stream-standalone**: Local leader with UI at <http://localhost:30900> (admin / `CRIBL_STREAM_PASSWORD`)
+- **cribl-stream-standalone**: Local leader with UI at `http://localhost:30900` (admin / `CRIBL_STREAM_PASSWORD`)
 
 ## OTLP Telemetry
 
