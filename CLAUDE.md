@@ -19,9 +19,23 @@ Kubernetes manifests for local OrbStack cluster.
 - **Image tags**: Use `latest` for upstream images (Cribl, OTEL, etc.). Do NOT pin specific versions — Renovate and upstream release tracking handle updates.
 - **Worktrees**: Use `/init-worktree` before starting work. Work in feature branches.
 
+## Self-Hosted Runner
+
+E2E tests run on a self-hosted ARM64 runner: a stock `myoung34/github-runner:ubuntu-jammy` Docker container with `EPHEMERAL=1`, managed by `docker/actions-runner/docker-compose.yml`. Every job runs in a fresh, single-use container; `restart: unless-stopped` respawns a new one after each job exits.
+
+A macOS LaunchAgent (`com.jacobpevans.orbstack-runner`) provides boot persistence by invoking `make runner-foreground`. After cloning a fresh main worktree, run `make runner-install-launchagent` once to (re-)install the LaunchAgent pointing at that worktree.
+
+**Recovery cheat-sheet** (full details in `docs/TESTING.md`):
+
+- `make runner-doctor` — deep health check
+- `launchctl kickstart -k gui/$(id -u)/com.jacobpevans.orbstack-runner` — force respawn
+- Logs: `~/Library/Logs/orbstack-runner/{stdout,stderr}.log`
+
+The runner requires the macOS host to be powered on with OrbStack running and Doppler authenticated (it fetches `GH_PAT_RUNNER_TOKEN` from `gh-workflow-tokens/prd`).
+
 ## Deployment Verification
 
-CI enforces deployment verification via the `e2e-tests.yml` workflow on a self-hosted runner.
+CI enforces deployment verification via the `e2e-tests.yml` workflow on the self-hosted runner above.
 Every PR touching `k8s/**`, `scripts/**`, `Makefile`, or `tests/**` automatically triggers
 a full deploy + E2E test run that blocks merge on failure.
 

@@ -1,4 +1,4 @@
-.PHONY: help validate validate-schemas generate-overlay deploy deploy-doppler status logs build-images test test-e2e test-smoke test-pipeline test-forwarding test-sourcetypes test-unit test-all test-setup warmup warmup-e2e full-power power-save power-status monitoring-up monitoring-down clean runner-start runner-stop runner-status runner-logs runner-check
+.PHONY: help validate validate-schemas generate-overlay deploy deploy-doppler status logs build-images test test-e2e test-smoke test-pipeline test-forwarding test-sourcetypes test-unit test-all test-setup warmup warmup-e2e full-power power-save power-status monitoring-up monitoring-down clean runner-build runner-kubeconfig runner-start runner-stop runner-status runner-logs runner-doctor runner-install-launchagent runner-uninstall-launchagent
 
 CONTEXT ?= orbstack
 NAMESPACE := monitoring
@@ -123,51 +123,118 @@ clean: ## Delete monitoring and sandbox namespaces (destructive!)
 	kubectl --context $(CONTEXT) delete namespace $(NAMESPACE) --ignore-not-found
 	kubectl --context $(CONTEXT) delete namespace ai-sandbox --ignore-not-found
 
-runner-start: runner-stop ## Start the self-hosted GitHub Actions runner (community Docker image)
-	@mkdir -p ~/.config
-	@kubectl config view --context $(CONTEXT) --minify --raw | sed 's|127.0.0.1|k8s.orb.local|g' > ~/.config/runner-kubeconfig
-	@chmod 600 ~/.config/runner-kubeconfig
-	docker run -d \
-	  --name actions-runner \
-	  --restart=always \
-	  -e REPO_URL=https://github.com/$(GITHUB_REPO) \
-	  -e ACCESS_TOKEN=$$(gh auth token) \
-	  -e RUNNER_NAME=orbstack-runner \
-	  -e LABELS=self-hosted,Linux,ARM64 \
-	  -e DEPLOY_HOME_DIR=$(HOME) \
-	  -e K8S_NODEPORT_HOST=host.internal \
-	  -e CLAUDE_HOME=$(HOME) \
-	  -e SOPS_AGE_KEY_FILE=/home/runner/.config/sops/age/keys.txt \
-	  -e KUBECONFIG=/home/runner/.kube/config \
-	  -v $(HOME)/.config/sops/age:/home/runner/.config/sops/age:ro \
-	  -v $(HOME)/.config/runner-kubeconfig:/home/runner/.kube/config:ro \
-	  -v $(HOME)/.claude/projects:$(HOME)/.claude/projects:rw \
-	  -v $(HOME)/.claude/logs:$(HOME)/.claude/logs:rw \
-	  -v $(HOME)/.claude/plans:$(HOME)/.claude/plans:rw \
-	  -v $(HOME)/.claude/tasks:$(HOME)/.claude/tasks:rw \
-	  -v $(HOME)/.claude/teams:$(HOME)/.claude/teams:rw \
-	  -v $(HOME)/.gemini:$(HOME)/.gemini:rw \
-	  myoung34/github-runner:ubuntu-jammy
+# ─── Self-Hosted GitHub Actions Runner ────────────────────────────────────────
+# Stock myoung34/github-runner image (multi-arch, EPHEMERAL=1) managed by
+# docker compose, with boot persistence provided by a macOS LaunchAgent.
+# Tools (kubectl/sops/age/yq/doppler/python) are installed PER-JOB by
+# .github/actions/setup-e2e-tools — no custom image needed.
+#
+# Lifecycle:
+#   make runner-pull                   → pull the latest stock image
+#   make runner-foreground             → boot in foreground (LaunchAgent uses this)
+#   make runner-start                  → boot in background (manual one-shot)
+#   make runner-stop                   → stop the runner container
+#   make runner-doctor                 → deep health check
+#   make runner-install-launchagent    → install LaunchAgent for boot persistence
+#   make runner-uninstall-launchagent  → remove LaunchAgent
+#
+# After installing the LaunchAgent, the runner is fully self-healing:
+#   - per-job: EPHEMERAL=1 → exits cleanly → `restart: unless-stopped` respawns
+#   - host-level (reboot/OrbStack restart): LaunchAgent KeepAlive=true respawns
+# ──────────────────────────────────────────────────────────────────────────────
 
-runner-stop: ## Stop and remove the self-hosted runner
-	docker stop actions-runner 2>/dev/null || true
-	docker rm actions-runner 2>/dev/null || true
+RUNNER_COMPOSE := docker/actions-runner/docker-compose.yml
+RUNNER_PROJECT := orbstack-runner
+RUNNER_PLIST_TEMPLATE := docker/actions-runner/com.jacobpevans.orbstack-runner.plist.template
+RUNNER_PLIST_LABEL := com.jacobpevans.orbstack-runner
+RUNNER_PLIST_DEST := $(HOME)/Library/LaunchAgents/$(RUNNER_PLIST_LABEL).plist
+RUNNER_LOG_DIR := $(HOME)/Library/Logs/orbstack-runner
+# RUNNER_REPO_ROOT = absolute path the LaunchAgent uses to invoke `make
+# runner-foreground`. Defaults to the current Makefile's worktree, so the
+# LaunchAgent always points at whichever worktree installed it. After merging
+# to main, re-run `make runner-install-launchagent` from the main worktree to
+# repoint persistence at the canonical location.
+RUNNER_REPO_ROOT ?= $(realpath $(CURDIR))
+DOPPLER_RUNNER_PROJ := gh-workflow-tokens
+DOPPLER_RUNNER_CONFIG := prd
 
-runner-status: ## Show runner container and GitHub registration status
-	@docker ps --filter name=actions-runner --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}' 2>/dev/null || true
-	@gh api repos/$(GITHUB_REPO)/actions/runners --jq '.runners[] | {name, status, labels: [.labels[].name]}' 2>/dev/null || true
+runner-pull: ## Pull the pinned stock myoung34/github-runner image
+	docker pull myoung34/github-runner:ubuntu-jammy
+
+runner-kubeconfig: ## Refresh the runner's kubeconfig (rewrites 127.0.0.1 → k8s.orb.local)
+	@mkdir -p $(HOME)/.config
+	kubectl config view --context $(CONTEXT) --minify --raw | sed 's|127.0.0.1|k8s.orb.local|g' > $(HOME)/.config/runner-kubeconfig
+	chmod 600 $(HOME)/.config/runner-kubeconfig
+
+runner-foreground: runner-kubeconfig ## Run runner in foreground (used by LaunchAgent)
+	doppler run -p $(DOPPLER_RUNNER_PROJ) -c $(DOPPLER_RUNNER_CONFIG) -- \
+	  docker compose -f $(RUNNER_COMPOSE) -p $(RUNNER_PROJECT) up --abort-on-container-exit
+
+runner-start: runner-kubeconfig ## Start runner in background (manual one-shot)
+	doppler run -p $(DOPPLER_RUNNER_PROJ) -c $(DOPPLER_RUNNER_CONFIG) -- \
+	  docker compose -f $(RUNNER_COMPOSE) -p $(RUNNER_PROJECT) up -d
+
+runner-stop: ## Stop and remove the runner container
+	doppler run -p $(DOPPLER_RUNNER_PROJ) -c $(DOPPLER_RUNNER_CONFIG) -- \
+	  docker compose -f $(RUNNER_COMPOSE) -p $(RUNNER_PROJECT) down --remove-orphans
+
+runner-status: ## Show runner container + GitHub registration status
+	@echo "─── Container ───"
+	docker ps -a --filter name=$(RUNNER_PROJECT) --format 'table {{.Names}}\t{{.Status}}\t{{.RunningFor}}'
+	@echo ""
+	@echo "─── GitHub Registration ───"
+	gh api repos/$(GITHUB_REPO)/actions/runners --jq '.runners[] | {name, status, labels: [.labels[].name]}'
 
 runner-logs: ## Tail runner container logs
-	docker logs -f actions-runner
+	docker logs -f orbstack-runner
 
-runner-check: ## Verify runner container has required tools and mounts
-	@echo "Checking runner container tools..."
-	@docker exec actions-runner python3 --version
-	@docker exec actions-runner git --version
-	@docker exec actions-runner make --version
-	@docker exec actions-runner curl --version
-	@docker exec actions-runner jq --version
-	@echo "Checking mounted files..."
-	@docker exec actions-runner test -f /home/runner/.kube/config && echo "  kubeconfig: OK" || { echo "  kubeconfig: MISSING"; exit 1; }
-	@docker exec actions-runner test -f /home/runner/.config/sops/age/keys.txt && echo "  SOPS age key: OK" || { echo "  SOPS age key: MISSING"; exit 1; }
-	@echo "All checks passed."
+# Doctor splits into atomic sub-targets so each step uses native commands and
+# Make's built-in error propagation. No embedded bash blob.
+runner-doctor: runner-doctor-container runner-doctor-github runner-doctor-mounts runner-doctor-cluster runner-doctor-launchagent ## Deep health check
+	@echo ""
+	@echo "✓ runner-doctor: ALL CHECKS PASSED"
+
+runner-doctor-container:
+	@echo "─── Container state ───"
+	docker inspect orbstack-runner --format 'state: {{.State.Status}}  restartCount: {{.RestartCount}}  exitCode: {{.State.ExitCode}}'
+	docker inspect orbstack-runner --format '{{eq .State.Status "running"}}' | grep -q '^true$$'
+
+runner-doctor-github:
+	@echo "─── GitHub registration ───"
+	gh api repos/$(GITHUB_REPO)/actions/runners --jq '.runners[] | [.name, .status, ([.labels[].name] | join(","))] | @tsv'
+	gh api repos/$(GITHUB_REPO)/actions/runners --jq '[.runners[] | select(.status=="online")] | length' | grep -q -E '^[1-9]'
+
+runner-doctor-mounts:
+	@echo "─── Mounts inside container ───"
+	docker exec orbstack-runner test -f /home/runner/.kube/config
+	@echo "  kubeconfig: OK"
+	docker exec orbstack-runner test -f /home/runner/.config/sops/age/keys.txt
+	@echo "  SOPS age key: OK"
+
+runner-doctor-cluster:
+	@echo "─── Cluster reachability from container ───"
+	docker exec orbstack-runner getent hosts k8s.orb.local
+	docker exec orbstack-runner grep -q k8s.orb.local /home/runner/.kube/config
+	@echo "  k8s.orb.local: resolvable + present in kubeconfig"
+
+runner-doctor-launchagent:
+	@echo "─── LaunchAgent ───"
+	@launchctl print gui/$$(id -u)/$(RUNNER_PLIST_LABEL) >/dev/null 2>&1 && echo "  LaunchAgent: loaded" || echo "  WARN: LaunchAgent not installed (run: make runner-install-launchagent)"
+
+runner-install-launchagent: ## Install macOS LaunchAgent for boot persistence (idempotent)
+	@mkdir -p $(HOME)/Library/LaunchAgents $(RUNNER_LOG_DIR)
+	sed -e 's|__HOME__|$(HOME)|g' -e 's|__USER__|'"$$(id -un)"'|g' -e 's|__REPO_ROOT__|$(RUNNER_REPO_ROOT)|g' $(RUNNER_PLIST_TEMPLATE) > $(RUNNER_PLIST_DEST)
+	chmod 644 $(RUNNER_PLIST_DEST)
+	-launchctl bootout gui/$$(id -u)/$(RUNNER_PLIST_LABEL) 2>/dev/null
+	launchctl bootstrap gui/$$(id -u) $(RUNNER_PLIST_DEST)
+	launchctl print gui/$$(id -u)/$(RUNNER_PLIST_LABEL) | grep -E '^\s*(state|pid|path)' || true
+	@echo ""
+	@echo "✓ LaunchAgent installed: $(RUNNER_PLIST_DEST)"
+	@echo "  Repo root: $(RUNNER_REPO_ROOT)"
+	@echo "  Logs:      $(RUNNER_LOG_DIR)/{stdout,stderr}.log"
+	@echo "  Restart:   launchctl kickstart -k gui/$$(id -u)/$(RUNNER_PLIST_LABEL)"
+
+runner-uninstall-launchagent: ## Uninstall macOS LaunchAgent
+	-launchctl bootout gui/$$(id -u)/$(RUNNER_PLIST_LABEL) 2>/dev/null
+	rm -f $(RUNNER_PLIST_DEST)
+	@echo "✓ LaunchAgent uninstalled"

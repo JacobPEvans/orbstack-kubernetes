@@ -1,0 +1,62 @@
+---
+# Self-hosted GitHub Actions runner for orbstack-kubernetes E2E tests.
+#
+# Architecture (zero custom code):
+#   * Stock myoung34/github-runner image (multi-arch, includes the
+#     actions-runner binary). Tools (kubectl/sops/age/yq/doppler/python)
+#     are installed PER-JOB by .github/actions/setup-e2e-tools, so the
+#     image needs no customization.
+#   * EPHEMERAL=1 makes each container single-use: register, run one job,
+#     deregister, exit. This eliminates the "Cannot configure: already
+#     configured" crash loop that plagued the previous setup.
+#   * `restart: unless-stopped` makes compose respawn a fresh container
+#     after each job exit. Combined with EPHEMERAL, every job runs in a
+#     pristine environment — exactly like GitHub-hosted runners.
+#   * Boot persistence is provided by the macOS LaunchAgent
+#     ~/Library/LaunchAgents/com.jacobpevans.orbstack-runner.plist
+#     which runs `make runner-foreground` (foreground compose up).
+#
+# Required env (injected by `doppler run -p gh-workflow-tokens -c prd`):
+#   GH_PAT_RUNNER_TOKEN — fine-grained PAT, Administration:Read&Write
+#                         (mapped to ACCESS_TOKEN inside the container)
+#
+# Lifecycle commands (all in the Makefile):
+#   make runner-start                  → boot in background (manual use)
+#   make runner-foreground             → boot in foreground (LaunchAgent uses this)
+#   make runner-stop                   → stop the container
+#   make runner-doctor                 → deep health check
+#   make runner-install-launchagent    → install boot-persistence LaunchAgent
+services:
+  runner:
+    container_name: orbstack-runner
+    # Pinned to ubuntu-jammy (22.04) — `latest` resolves to ubuntu-focal (20.04)
+    # which lacks arm64 builds for Python 3.14 used by setup-e2e-tools.
+    image: myoung34/github-runner:ubuntu-jammy
+    restart: unless-stopped
+    environment:
+      RUNNER_SCOPE: repo
+      REPO_URL: https://github.com/JacobPEvans/orbstack-kubernetes
+      RUNNER_NAME: orbstack-runner
+      LABELS: self-hosted,Linux,ARM64
+      EPHEMERAL: "1"
+      DISABLE_AUTO_UPDATE: "1"
+      ACCESS_TOKEN: ${GH_PAT_RUNNER_TOKEN:?GH_PAT_RUNNER_TOKEN must be set (use doppler run -p gh-workflow-tokens -c prd)}
+      # Variables consumed by the e2e workflow steps inside the container
+      DEPLOY_HOME_DIR: /home/runner
+      CLAUDE_HOME: /home/runner
+      K8S_NODEPORT_HOST: k8s.orb.local
+    volumes:
+      # Docker socket — required because some workflow steps build/run containers
+      - /var/run/docker.sock:/var/run/docker.sock
+      # SOPS age key for decrypting secrets.enc.yaml
+      - ${HOME}/.config/sops/age:/home/runner/.config/sops/age:ro
+      # Kubeconfig with k8s.orb.local rewritten from 127.0.0.1
+      # (refreshed by `make runner-kubeconfig` before each compose up)
+      - ${HOME}/.config/runner-kubeconfig:/home/runner/.kube/config:ro
+      # Persisted Claude Code + Gemini CLI state for AI-assisted CI tasks
+      - ${HOME}/.claude/projects:/home/runner/.claude/projects:rw
+      - ${HOME}/.claude/logs:/home/runner/.claude/logs:rw
+      - ${HOME}/.claude/plans:/home/runner/.claude/plans:rw
+      - ${HOME}/.claude/tasks:/home/runner/.claude/tasks:rw
+      - ${HOME}/.claude/teams:/home/runner/.claude/teams:rw
+      - ${HOME}/.gemini:/home/runner/.gemini:rw

@@ -21,11 +21,44 @@ CI enforcement is path-based: when the relevant files change, the corresponding 
 | Tier | CI Workflow | Runner |
 |------|-------------|--------|
 | 0 — Unit + manifest tests | `validate.yml` (`unit-tests` job) | ubuntu-latest |
-| 1–4 — Smoke, Pipeline, Forwarding, Sourcetypes | `e2e-tests.yml` | self-hosted macOS |
+| 1–4 — Smoke, Pipeline, Forwarding, Sourcetypes | `e2e-tests.yml` | self-hosted Linux/ARM64 (Docker on macOS) |
 
 The `e2e-tests.yml` workflow runs for changes under `k8s/**`, `scripts/**`, `tests/**`, or the `Makefile`; PRs that do not touch those paths will only run Tier 0 in CI.
 
 Manual `make test-*` commands are available for local development and debugging.
+
+## Self-Hosted Runner
+
+The Tier 1–4 jobs execute inside an ephemeral [`myoung34/github-runner:ubuntu-jammy`](https://github.com/myoung34/docker-github-actions-runner) container running on the macOS host that owns the OrbStack k3s cluster. The container reaches the cluster API via `k8s.orb.local` (OrbStack injects DNS resolution for `*.orb.local` inside Docker containers).
+
+**Architecture (zero custom code):**
+
+- **Stock image** with `EPHEMERAL=1` — the container registers, runs ONE job, deregisters cleanly, and exits with code 0. `restart: unless-stopped` in `docker/actions-runner/docker-compose.yml` then respawns a fresh container for the next job. This eliminates the "Cannot configure: already configured" crash loop that affected the previous setup.
+- **Tools** (kubectl, kustomize, sops, age, yq, doppler, python) come from the workflow's `setup-e2e-tools` composite action, NOT from a custom image.
+- **Boot persistence** is provided by a macOS LaunchAgent (`~/Library/LaunchAgents/com.jacobpevans.orbstack-runner.plist`) installed by `make runner-install-launchagent`. The LaunchAgent's `KeepAlive=true` respawns `make runner-foreground` after each ephemeral cycle exits.
+
+**Operations:**
+
+```sh
+make runner-pull                   # pull the pinned myoung34/github-runner:ubuntu-jammy image
+make runner-start                  # boot in background (one-shot, manual)
+make runner-foreground             # boot in foreground (used by LaunchAgent)
+make runner-stop                   # stop and remove the runner
+make runner-status                 # container + GitHub registration status
+make runner-logs                   # tail container logs
+make runner-doctor                 # deep health check (container, registration, mounts, k8s reach, LaunchAgent)
+make runner-install-launchagent    # install LaunchAgent (re-run from main worktree after merge)
+make runner-uninstall-launchagent  # remove LaunchAgent
+```
+
+**Recovery:**
+
+- **Container failed?** `launchctl kickstart -k gui/$(id -u)/com.jacobpevans.orbstack-runner` forces the LaunchAgent to respawn the runner.
+- **Registration stuck?** Delete the orphan via `GH_TOKEN=$(doppler secrets get GH_PAT_RUNNER_TOKEN --plain -p gh-workflow-tokens -c prd) gh api -X DELETE repos/JacobPEvans/orbstack-kubernetes/actions/runners/<id>`, then `launchctl kickstart -k ...`.
+- **LaunchAgent not loaded?** Run `make runner-install-launchagent` from the worktree you want it to point at (typically `~/git/orbstack-kubernetes/main`).
+- **Logs:** `~/Library/Logs/orbstack-runner/{stdout,stderr}.log`.
+
+The runner requires the macOS host to be powered on and OrbStack to be running. Sleep/wake and reboot are handled automatically by the LaunchAgent.
 
 ## Prerequisites
 
