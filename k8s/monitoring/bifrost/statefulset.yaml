@@ -89,6 +89,11 @@ spec:
             limits:
               memory: "512Mi"
               ephemeral-storage: "1Gi"
+          # Probe timeoutSeconds: 5 (vs default 1) is defense-in-depth
+          # against a saturated fasthttp worker pool potentially blocking
+          # /health responses under extreme concurrent load. See PR #143
+          # review thread for rationale. /health itself is a lightweight
+          # DB-ping check and normally returns in ~10ms.
           startupProbe:
             httpGet:
               path: /health
@@ -96,6 +101,7 @@ spec:
             initialDelaySeconds: 5
             periodSeconds: 5
             failureThreshold: 12
+            timeoutSeconds: 5
           livenessProbe:
             httpGet:
               path: /health
@@ -103,6 +109,7 @@ spec:
             initialDelaySeconds: 15
             periodSeconds: 30
             failureThreshold: 3
+            timeoutSeconds: 5
           readinessProbe:
             httpGet:
               path: /health
@@ -110,6 +117,7 @@ spec:
             initialDelaySeconds: 10
             periodSeconds: 10
             failureThreshold: 5
+            timeoutSeconds: 5
       volumes:
         - name: config-ro
           configMap:
