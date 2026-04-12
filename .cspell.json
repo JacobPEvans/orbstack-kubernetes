@@ -18,6 +18,7 @@
     "httpevent",
     "launchagent",
     "limitrange",
+    "mgmt",
     "myoung",
     "mypod",
     "powermode",
@@ -26,6 +27,7 @@
     "rollouts",
     "srctype",
     "streamable",
+    "tinyurl",
     "unparseable"
   ],
   "ignorePaths": [
