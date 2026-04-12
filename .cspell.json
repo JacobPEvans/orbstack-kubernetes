@@ -6,6 +6,7 @@
     "https://raw.githubusercontent.com/JacobPEvans/.github/main/cspell/base.json"
   ],
   "words": [
+    "agentics",
     "bmuschko",
     "bootout",
     "conftest",
@@ -14,6 +15,7 @@
     "distroless",
     "dockerfiles",
     "fileconsumer",
+    "githubnext",
     "healthchecks",
     "httpevent",
     "launchagent",
@@ -31,6 +33,7 @@
     "unparseable"
   ],
   "ignorePaths": [
+    ".github/aw/**",
     "packs/",
     "k8s/overlays/",
     "*.crbl",

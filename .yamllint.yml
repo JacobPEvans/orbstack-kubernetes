@@ -2,6 +2,9 @@
 extends: default
 
 ignore: |
+  .github/aw/
+  .github/workflows/*.lock.yml
+  .github/workflows/agentics-maintenance.yml
   secrets.enc.yaml
 
 rules:
