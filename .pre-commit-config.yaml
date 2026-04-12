@@ -8,6 +8,9 @@
 # Update hooks: pre-commit autoupdate
 # =============================================================================
 
+# Exclude auto-generated gh-aw compile artifacts from all hooks
+exclude: '^\.github/(aw/|workflows/(.*\.lock\.yml|agentics-maintenance\.yml))'
+
 repos:
   # ---------------------------------------------------------------------------
   # Base hooks - standard file hygiene
