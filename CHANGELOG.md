@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.9.1](https://github.com/JacobPEvans/orbstack-kubernetes/compare/v1.9.0...v1.9.1) (2026-04-12)
+
+
+### Bug Fixes
+
+* **docs:** stop CLAUDE.md from triggering Doppler commands ([e0264da](https://github.com/JacobPEvans/orbstack-kubernetes/commit/e0264daae7cc29b450c26a0372230152f4b8be1d))
+
 ## [1.9.0](https://github.com/JacobPEvans/orbstack-kubernetes/compare/v1.8.5...v1.9.0) (2026-04-12)
 
 
