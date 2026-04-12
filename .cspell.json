@@ -26,7 +26,6 @@
     "rollouts",
     "srctype",
     "streamable",
-    "tfileconsumer",
     "unparseable"
   ],
   "ignorePaths": [
