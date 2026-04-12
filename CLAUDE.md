@@ -15,7 +15,7 @@ Kubernetes manifests for local OrbStack cluster.
 - **PLACEHOLDER_HOME_DIR**: Base manifests use literal `PLACEHOLDER_HOME_DIR` for hostPath volumes. NEVER replace with real paths in `k8s/monitoring/`.
 - **Overlays are gitignored**: `k8s/overlays/local/` is generated at deploy time by `scripts/generate-overlay.sh` and must not be committed.
 - **Deploy workflow**: `make deploy` generates overlay + creates secrets + applies kustomize.
-- **Secrets**: All secrets in SOPS (`secrets.enc.yaml`). Doppler project/config stored in SOPS, never hardcoded. Never commit plaintext secrets.
+- **Secrets**: All secrets are pre-injected into the Claude Code session via Nix/direnv (SOPS-decrypted env vars). Never invoke `doppler` or `sops` commands manually — the env already has everything. Source of truth is `secrets.enc.yaml`. Never commit plaintext secrets.
 - **Image tags**: Use `latest` for upstream images (Cribl, OTEL, etc.). Do NOT pin specific versions — Renovate and upstream release tracking handle updates.
 - **Worktrees**: Use `/init-worktree` before starting work. Work in feature branches.
 
@@ -41,7 +41,7 @@ a full deploy + E2E test run that blocks merge on failure.
 
 **Manual verification** (for local troubleshooting only):
 
-1. `make deploy-doppler` (or `kubectl apply -k k8s/overlays/local/` if SOPS key unavailable)
+1. `make deploy` (secrets are already in the session env; no Doppler wrapper needed)
 2. Wait for rollouts: `kubectl --context orbstack -n monitoring rollout status statefulset/<name>`
 3. Verify pods are Running and Ready: `make status`
 4. Check logs for errors: `kubectl --context orbstack -n monitoring logs statefulset/<name> --tail=20`
