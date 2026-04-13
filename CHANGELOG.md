@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.9.3](https://github.com/JacobPEvans/orbstack-kubernetes/compare/v1.9.2...v1.9.3) (2026-04-13)
+
+
+### Bug Fixes
+
+* add automation bots to AI Moderator skip-bots ([#168](https://github.com/JacobPEvans/orbstack-kubernetes/issues/168)) ([9ec1690](https://github.com/JacobPEvans/orbstack-kubernetes/commit/9ec1690cbb2cdf6031319970996781d9c420584d))
+
 ## [1.9.2](https://github.com/JacobPEvans/orbstack-kubernetes/compare/v1.9.1...v1.9.2) (2026-04-13)
 
 
