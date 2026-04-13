@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.9.2](https://github.com/JacobPEvans/orbstack-kubernetes/compare/v1.9.1...v1.9.2) (2026-04-13)
+
+
+### Bug Fixes
+
+* recompile gh-aw lock files with v0.68.1 ([3c0478f](https://github.com/JacobPEvans/orbstack-kubernetes/commit/3c0478fa76e5afd83604af0c37505635010c34f0))
+
 ## [1.9.1](https://github.com/JacobPEvans/orbstack-kubernetes/compare/v1.9.0...v1.9.1) (2026-04-12)
 
 
