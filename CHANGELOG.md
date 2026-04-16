@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.9.4](https://github.com/JacobPEvans/orbstack-kubernetes/compare/v1.9.3...v1.9.4) (2026-04-16)
+
+
+### Bug Fixes
+
+* **bifrost:** enable list_models for mlx-local provider ([#176](https://github.com/JacobPEvans/orbstack-kubernetes/issues/176)) ([b319ad4](https://github.com/JacobPEvans/orbstack-kubernetes/commit/b319ad460d94ecacad075e7946fe6c03525e1f8c))
+
 ## [1.9.3](https://github.com/JacobPEvans/orbstack-kubernetes/compare/v1.9.2...v1.9.3) (2026-04-13)
 
 
