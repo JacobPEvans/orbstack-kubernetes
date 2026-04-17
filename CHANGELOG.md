@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.9.5](https://github.com/JacobPEvans/orbstack-kubernetes/compare/v1.9.4...v1.9.5) (2026-04-17)
+
+
+### Bug Fixes
+
+* **deps:** bump requests minimum to &gt;=2.33.0 ([#179](https://github.com/JacobPEvans/orbstack-kubernetes/issues/179)) ([da5e571](https://github.com/JacobPEvans/orbstack-kubernetes/commit/da5e57144098d323e2b810873bec2145eea06c5c))
+
 ## [1.9.4](https://github.com/JacobPEvans/orbstack-kubernetes/compare/v1.9.3...v1.9.4) (2026-04-16)
 
 
