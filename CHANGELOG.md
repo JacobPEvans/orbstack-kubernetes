@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.9.6](https://github.com/JacobPEvans/orbstack-kubernetes/compare/v1.9.5...v1.9.6) (2026-04-17)
+
+
+### Bug Fixes
+
+* **bifrost:** add \$schema field to silence config warning ([#180](https://github.com/JacobPEvans/orbstack-kubernetes/issues/180)) ([36affb8](https://github.com/JacobPEvans/orbstack-kubernetes/commit/36affb89eb03173f94c59e9f5c58168bcc72dcbf))
+
 ## [1.9.5](https://github.com/JacobPEvans/orbstack-kubernetes/compare/v1.9.4...v1.9.5) (2026-04-17)
 
 
