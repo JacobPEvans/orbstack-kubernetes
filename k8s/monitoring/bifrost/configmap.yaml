@@ -8,6 +8,7 @@ metadata:
 data:
   config.json: |
     {
+      "$schema": "https://www.getbifrost.ai/schema",
       "providers": {
         "openai": {
           "keys": [
