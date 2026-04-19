@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.9.7](https://github.com/JacobPEvans/orbstack-kubernetes/compare/v1.9.6...v1.9.7) (2026-04-19)
+
+
+### Bug Fixes
+
+* make Bifrost request timeouts explicit ([eeafd0f](https://github.com/JacobPEvans/orbstack-kubernetes/commit/eeafd0f50b9489cd68eea69da20d1795ac52599b))
+
 ## [1.9.6](https://github.com/JacobPEvans/orbstack-kubernetes/compare/v1.9.5...v1.9.6) (2026-04-17)
 
 
