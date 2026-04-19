@@ -9,6 +9,7 @@ by reading manifest files as text, without any cluster or external dependencies.
 
 import json
 import re
+import shutil
 import subprocess
 from pathlib import Path
 
@@ -21,6 +22,7 @@ EDGE_STANDALONE_DIR = BASE_DIR / "cribl-edge-standalone"
 OTEL_COLLECTOR_DIR = BASE_DIR / "otel-collector"
 BIFROST_DIR = BASE_DIR / "bifrost"
 DEFAULT_REQUEST_TIMEOUT_IN_SECONDS = 60
+KUSTOMIZE_RENDER_TIMEOUT_SECONDS = 10
 MAX_REQUEST_TIMEOUT_IN_SECONDS = 300
 
 # Absolute paths under these prefixes are valid system mounts in base manifests.
@@ -34,18 +36,23 @@ def _base_yaml_files_with_hostpath() -> list[Path]:
 
 def _render_bifrost_config() -> dict:
     """Render Bifrost Kustomize output and return parsed config.json."""
+    if shutil.which("kubectl") is None:
+        pytest.skip("kubectl is required to render Bifrost Kustomize manifests")
+
     result = subprocess.run(
         ["kubectl", "kustomize", str(BIFROST_DIR)],
         check=True,
         capture_output=True,
         text=True,
-        timeout=DEFAULT_REQUEST_TIMEOUT_IN_SECONDS,
+        timeout=KUSTOMIZE_RENDER_TIMEOUT_SECONDS,
     )
     manifests = list(yaml.safe_load_all(result.stdout))
     configmaps = [
         manifest
         for manifest in manifests
-        if manifest.get("kind") == "ConfigMap" and manifest.get("metadata", {}).get("name") == "bifrost-config"
+        if manifest
+        and manifest.get("kind") == "ConfigMap"
+        and manifest.get("metadata", {}).get("name") == "bifrost-config"
     ]
     assert len(configmaps) == 1, "Rendered manifests must contain exactly one bifrost-config ConfigMap"
 
