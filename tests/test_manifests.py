@@ -7,7 +7,10 @@ by reading manifest files as text, without any cluster or external dependencies.
   - Base manifests must use PLACEHOLDER_HOME_DIR for hostPath user-space volumes
 """
 
+import json
 import re
+import shutil
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -17,6 +20,10 @@ BASE_DIR = Path(__file__).parent.parent / "k8s" / "monitoring"
 NETWORK_POLICIES_DIR = BASE_DIR / "network-policies"
 EDGE_STANDALONE_DIR = BASE_DIR / "cribl-edge-standalone"
 OTEL_COLLECTOR_DIR = BASE_DIR / "otel-collector"
+BIFROST_DIR = BASE_DIR / "bifrost"
+DEFAULT_REQUEST_TIMEOUT_IN_SECONDS = 60
+KUSTOMIZE_RENDER_TIMEOUT_SECONDS = 10
+MAX_REQUEST_TIMEOUT_IN_SECONDS = 300
 
 # Absolute paths under these prefixes are valid system mounts in base manifests.
 _SYSTEM_PATH_PREFIXES = ("/var/", "/proc/", "/sys/", "/dev/", "/etc/", "/tmp/", "/run/")
@@ -25,6 +32,33 @@ _SYSTEM_PATH_PREFIXES = ("/var/", "/proc/", "/sys/", "/dev/", "/etc/", "/tmp/", 
 def _base_yaml_files_with_hostpath() -> list[Path]:
     """Return sorted list of base YAML files that contain a hostPath volume entry."""
     return sorted(f for f in BASE_DIR.rglob("*.yaml") if "kustomization" not in f.name and "hostPath" in f.read_text())
+
+
+def _render_bifrost_config() -> dict:
+    """Render Bifrost Kustomize output and return parsed config.json."""
+    if shutil.which("kubectl") is None:
+        pytest.skip("kubectl is required to render Bifrost Kustomize manifests")
+
+    result = subprocess.run(
+        ["kubectl", "kustomize", str(BIFROST_DIR)],
+        check=True,
+        capture_output=True,
+        text=True,
+        timeout=KUSTOMIZE_RENDER_TIMEOUT_SECONDS,
+    )
+    manifests = list(yaml.safe_load_all(result.stdout))
+    configmaps = [
+        manifest
+        for manifest in manifests
+        if manifest
+        and manifest.get("kind") == "ConfigMap"
+        and manifest.get("metadata", {}).get("name") == "bifrost-config"
+    ]
+    assert len(configmaps) == 1, "Rendered manifests must contain exactly one bifrost-config ConfigMap"
+
+    config_json = configmaps[0]["data"]["config.json"]
+    assert "$(" not in config_json, "Bifrost config contains unresolved Kustomize variables"
+    return json.loads(config_json)
 
 
 class TestArchitectureInvariant:
@@ -137,6 +171,40 @@ class TestOtelStreamPath:
             "Stream ingress policy must permit cribl-edge-standalone as a source"
         )
         assert "8088" in policy_text, "Stream ingress policy must permit port 8088 for HEC traffic from Edge Standalone"
+
+
+class TestBifrostConfig:
+    """Verify Bifrost does not inherit upstream 30s timeout defaults."""
+
+    def test_timeout_values_are_defined_as_kustomize_variables(self):
+        """Timeout literals live in ConfigMap annotations and config.json references those variables."""
+        configmap = yaml.safe_load((BIFROST_DIR / "configmap.yaml").read_text())
+        annotations = configmap["metadata"]["annotations"]
+        config_json = configmap["data"]["config.json"]
+
+        assert annotations["bifrost-timeouts/default_request_timeout_in_seconds"] == str(
+            DEFAULT_REQUEST_TIMEOUT_IN_SECONDS
+        )
+        assert annotations["bifrost-timeouts/max_request_timeout_in_seconds"] == str(MAX_REQUEST_TIMEOUT_IN_SECONDS)
+        assert "$(DEFAULT_REQUEST_TIMEOUT_IN_SECONDS)" in config_json
+        assert "$(MAX_REQUEST_TIMEOUT_IN_SECONDS)" in config_json
+
+    def test_request_timeouts_are_explicit_after_render(self):
+        """All providers must set explicit request timeouts via rendered Kustomize variables."""
+        config = _render_bifrost_config()
+
+        assert config["client"]["mcp_tool_execution_timeout"] == MAX_REQUEST_TIMEOUT_IN_SECONDS
+
+        providers = config["providers"]
+        for provider_name, provider in providers.items():
+            timeout = provider.get("network_config", {}).get("default_request_timeout_in_seconds")
+            assert timeout is not None, f"{provider_name} must set default_request_timeout_in_seconds explicitly"
+            assert timeout != 30, f"{provider_name} must not inherit or set Bifrost's 30s default"
+
+            if provider_name == "mlx-local":
+                assert timeout == MAX_REQUEST_TIMEOUT_IN_SECONDS
+            else:
+                assert timeout == DEFAULT_REQUEST_TIMEOUT_IN_SECONDS
 
 
 class TestPlaceholderHomeDirRule:
