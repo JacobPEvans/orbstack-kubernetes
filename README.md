@@ -1,5 +1,7 @@
 # orbstack-kubernetes
 
+[![validate](https://github.com/JacobPEvans/orbstack-kubernetes/actions/workflows/validate.yml/badge.svg)](https://github.com/JacobPEvans/orbstack-kubernetes/actions/workflows/validate.yml) [![e2e-tests](https://github.com/JacobPEvans/orbstack-kubernetes/actions/workflows/e2e-tests.yml/badge.svg)](https://github.com/JacobPEvans/orbstack-kubernetes/actions/workflows/e2e-tests.yml) [![License: Apache-2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
+
 Kubernetes monitoring stack for local OrbStack cluster. Collects, processes, and routes logs from Claude Code, Ollama, terminal sessions, and ephemeral AI containers.
 
 ## Components
