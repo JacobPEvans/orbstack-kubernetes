@@ -5,15 +5,12 @@ metadata:
   namespace: monitoring
   labels:
     app: bifrost
-  annotations:
-    bifrost-timeouts/default_request_timeout_in_seconds: "60"
-    bifrost-timeouts/max_request_timeout_in_seconds: "300"
 data:
   config.json: |
     {
       "$schema": "https://www.getbifrost.ai/schema",
       "client": {
-        "mcp_tool_execution_timeout": $(MAX_REQUEST_TIMEOUT_IN_SECONDS)
+        "mcp_tool_execution_timeout": 300
       },
       "providers": {
         "openai": {
@@ -26,7 +23,7 @@ data:
             }
           ],
           "network_config": {
-            "default_request_timeout_in_seconds": $(DEFAULT_REQUEST_TIMEOUT_IN_SECONDS)
+            "default_request_timeout_in_seconds": 60
           }
         },
         "gemini": {
@@ -39,7 +36,7 @@ data:
             }
           ],
           "network_config": {
-            "default_request_timeout_in_seconds": $(DEFAULT_REQUEST_TIMEOUT_IN_SECONDS)
+            "default_request_timeout_in_seconds": 60
           }
         },
         "openrouter": {
@@ -52,7 +49,7 @@ data:
             }
           ],
           "network_config": {
-            "default_request_timeout_in_seconds": $(DEFAULT_REQUEST_TIMEOUT_IN_SECONDS)
+            "default_request_timeout_in_seconds": 60
           }
         },
         "mlx-local": {
@@ -66,7 +63,7 @@ data:
           ],
           "network_config": {
             "base_url": "http://host.docker.internal:11434",
-            "default_request_timeout_in_seconds": $(MAX_REQUEST_TIMEOUT_IN_SECONDS)
+            "default_request_timeout_in_seconds": 300
           },
           "custom_provider_config": {
             "base_provider_type": "openai",

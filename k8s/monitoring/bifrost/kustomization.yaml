@@ -10,24 +10,3 @@ resources:
   # doppler-secret.yaml is applied separately by deploy.sh — it targets
   # doppler-operator-system namespace, not monitoring, and the DopplerSecret
   # CRD is installed by the Doppler operator (not part of our kustomize base).
-
-configurations:
-  - kustomizeconfig.yaml
-
-# Kustomize replacements cannot update repeated substrings inside this
-# config.json block scalar, so vars intentionally own these constants.
-vars:
-  - name: DEFAULT_REQUEST_TIMEOUT_IN_SECONDS
-    objref:
-      apiVersion: v1
-      kind: ConfigMap
-      name: bifrost-config
-    fieldref:
-      fieldpath: metadata.annotations.bifrost-timeouts/default_request_timeout_in_seconds
-  - name: MAX_REQUEST_TIMEOUT_IN_SECONDS
-    objref:
-      apiVersion: v1
-      kind: ConfigMap
-      name: bifrost-config
-    fieldref:
-      fieldpath: metadata.annotations.bifrost-timeouts/max_request_timeout_in_seconds
