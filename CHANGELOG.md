@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.9.8](https://github.com/JacobPEvans/orbstack-kubernetes/compare/v1.9.7...v1.9.8) (2026-04-21)
+
+
+### Bug Fixes
+
+* **ci:** add gh-aw-pin-refresh workflow and recompile lock files ([7874a98](https://github.com/JacobPEvans/orbstack-kubernetes/commit/7874a9878e04b109b676b4496d04fdcc095d7f28))
+
 ## [1.9.7](https://github.com/JacobPEvans/orbstack-kubernetes/compare/v1.9.6...v1.9.7) (2026-04-19)
 
 
