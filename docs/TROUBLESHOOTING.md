@@ -81,7 +81,7 @@ curl -X POST http://localhost:30318/v1/traces \
 Packs are installed at pod startup via `cribl pack install` from GitHub releases (no local `.crbl` files).
 
 ```bash
-# Check startup logs — pack install runs in the postStart lifecycle hook
+# Check startup logs — pack install runs via CRIBL_BEFORE_START_CMD_* env vars (before the Cribl process starts)
 kubectl -n monitoring logs statefulset/cribl-edge-standalone --tail=40
 
 # Verify packs are present inside the container

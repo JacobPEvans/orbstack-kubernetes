@@ -33,5 +33,3 @@ jobs:
           echo "=== Validating commit: $(git log --oneline -1) ==="
           kubectl kustomize k8s/monitoring/ > /tmp/rendered-monitoring.yaml
           kubeconform -strict -summary -output text /tmp/rendered-monitoring.yaml
-          kubectl kustomize k8s/sandbox/ > /tmp/rendered-sandbox.yaml
-          kubeconform -strict -summary -output text /tmp/rendered-sandbox.yaml

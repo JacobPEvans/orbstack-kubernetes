@@ -3,7 +3,7 @@
 CONTEXT ?= orbstack
 NAMESPACE := monitoring
 GITHUB_REPO ?= JacobPEvans/orbstack-kubernetes
-KUSTOMIZE_DIRS := k8s/monitoring k8s/sandbox
+KUSTOMIZE_DIRS := k8s/monitoring
 MONITORING_STATEFULSETS := otel-collector cribl-edge-managed cribl-edge-standalone cribl-stream-standalone cribl-mcp-server bifrost
 PYTEST_CHECK := test -x .venv/bin/pytest || { echo "Run 'make test-setup' first to install test dependencies"; exit 1; }
 UNIT_TEST_FILES := tests/test_unit.py tests/test_manifests.py tests/test_conftest_utils.py
