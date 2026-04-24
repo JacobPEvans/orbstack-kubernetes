@@ -19,13 +19,14 @@ jobs:
           fetch-depth: 3
       - id: get-commits
         run: |
-          commits=$(git log --format='%H' -3 | jq -R . | jq -s .)
+          commits=$(git log --format='%H' -3 | jq -R -c -s 'split("\n") | map(select(length > 0))')
           echo "commits=$commits" >> "$GITHUB_OUTPUT"
 
   validate-current-and-recent:
     needs: resolve-commits
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
         sha: ${{ fromJson(needs.resolve-commits.outputs.commits) }}
     steps:
