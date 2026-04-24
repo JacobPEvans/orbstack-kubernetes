@@ -10,7 +10,7 @@ This repository manages Kubernetes manifests and tooling for a local OrbStack de
 
 - **Supply-chain integrity** of container images (Cribl, OTEL Collector, Bifrost, etc.)
 - **Secret hygiene** — all secrets are managed via SOPS + Doppler, never committed in plaintext
-- **GitHub Actions security** — workflows are linted by Zizmor, untrusted external actions are SHA-pinned
+- **GitHub Actions security** — untrusted external actions are SHA-pinned; CodeQL analysis (Python + Actions) is a required status check enforced by repository ruleset
 
 ## Dependency Updates
 

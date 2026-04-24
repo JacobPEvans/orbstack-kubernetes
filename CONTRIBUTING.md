@@ -4,16 +4,24 @@ This is a single-maintainer repository for a local OrbStack Kubernetes cluster. 
 
 ## Setup
 
+Requires: kubectl, kustomize, kubeconform, OrbStack with k3s running.
+
+**With direnv (recommended)** — auto-activates the dev shell whenever you `cd` into the worktree:
+
 ```sh
-direnv allow      # one-time per worktree, auto-activates on cd
-nix develop       # manual activation if direnv isn't installed
+direnv allow      # one-time per worktree
 ```
 
-Requires: kubectl, kustomize, kubeconform, OrbStack with k3s running.
+**Without direnv** — manually enter the dev shell each time:
+
+```sh
+nix develop
+```
 
 ## Workflow
 
 1. Sync and create a worktree before starting:
+
    ```sh
    cd ~/git/orbstack-kubernetes/main
    git fetch --prune origin && git pull
@@ -21,11 +29,13 @@ Requires: kubectl, kustomize, kubeconform, OrbStack with k3s running.
    ```
 
 2. Make changes, then run unit tests (no cluster required):
+
    ```sh
    make test-unit
    ```
 
 3. Verify the full stack if your change touches `k8s/` or `scripts/`:
+
    ```sh
    make deploy
    make test-e2e
