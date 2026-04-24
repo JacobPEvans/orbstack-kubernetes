@@ -196,17 +196,13 @@ class TestBifrostConfig:
         assert not (BIFROST_DIR / "kustomizeconfig.yaml").exists()
 
     def test_timeout_values_are_explicit_in_config_json(self):
-        """Timeout literals live directly in config.json without a render template."""
-        configmap = yaml.safe_load((BIFROST_DIR / "configmap.yaml").read_text())
-        data = configmap["data"]
-        config = json.loads(data["config.json"])
+        """Timeout literals live directly in config.json (the canonical source file)."""
+        config_text = (BIFROST_DIR / "config.json").read_text()
+        config = json.loads(config_text)
 
-        assert "config.template.json" not in data
-        assert "default_request_timeout_in_seconds" not in data
-        assert "max_request_timeout_in_seconds" not in data
-        assert "$(" not in data["config.json"]
-        assert "__DEFAULT_REQUEST_TIMEOUT_IN_SECONDS__" not in data["config.json"]
-        assert "__MAX_REQUEST_TIMEOUT_IN_SECONDS__" not in data["config.json"]
+        assert "$(" not in config_text
+        assert "__DEFAULT_REQUEST_TIMEOUT_IN_SECONDS__" not in config_text
+        assert "__MAX_REQUEST_TIMEOUT_IN_SECONDS__" not in config_text
         assert config["client"]["mcp_tool_execution_timeout"] == MAX_REQUEST_TIMEOUT_IN_SECONDS
         assert config["providers"]["openai"]["network_config"]["default_request_timeout_in_seconds"] == (
             DEFAULT_REQUEST_TIMEOUT_IN_SECONDS

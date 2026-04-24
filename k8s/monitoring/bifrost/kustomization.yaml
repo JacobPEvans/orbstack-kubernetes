@@ -5,8 +5,17 @@ resources:
   - statefulset.yaml
   - service.yaml
   - service-nodeport.yaml
-  - configmap.yaml
   - pdb.yaml
   # doppler-secret.yaml is applied separately by deploy.sh — it targets
   # doppler-operator-system namespace, not monitoring, and the DopplerSecret
   # CRD is installed by the Doppler operator (not part of our kustomize base).
+
+configMapGenerator:
+  - name: bifrost-config
+    namespace: monitoring
+    options:
+      disableNameSuffixHash: true
+      labels:
+        app: bifrost
+    files:
+      - config.json
