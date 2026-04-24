@@ -76,8 +76,6 @@ orbstack-kubernetes/
 │   │   ├── cribl-stream-standalone/
 │   │   ├── cribl-mcp-server/
 │   │   └── network-policies/
-│   ├── sandbox/                 # AI sandbox containers (ai-sandbox namespace)
-│   │   └── namespace.yaml
 │   └── overlays/
 │       └── local/               # Generated at deploy time (gitignored)
 ├── docker/

@@ -78,14 +78,13 @@ curl -X POST http://localhost:30318/v1/traces \
 
 ## Cribl Edge Pack Not Loaded
 
+Packs are installed at pod startup via `cribl pack install` from GitHub releases (no local `.crbl` files).
+
 ```bash
-# Check postStart logs (pack install runs via postStart lifecycle hook on cribl-edge-standalone)
-kubectl -n monitoring logs statefulset/cribl-edge-standalone --tail=20
+# Check startup logs — pack install runs via CRIBL_BEFORE_START_CMD_* env vars (before the Cribl process starts)
+kubectl -n monitoring logs statefulset/cribl-edge-standalone --tail=40
 
-# Verify pack file exists on host
-ls -la packs/cc-edge-claude-code.crbl
-
-# Check pack was copied into the container
+# Verify packs are present inside the container
 kubectl -n monitoring exec statefulset/cribl-edge-standalone -- ls -la /opt/cribl/data/packs/
 ```
 
