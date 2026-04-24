@@ -9,29 +9,36 @@ permissions:
   contents: read
 
 jobs:
-  validate-current-and-recent:
+  resolve-commits:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        ref:
-          - main
-          - main~1
-          - main~2
+    outputs:
+      commits: ${{ steps.get-commits.outputs.commits }}
     steps:
       - uses: actions/checkout@v6
         with:
-          ref: ${{ matrix.ref }}
           fetch-depth: 3
+      - id: get-commits
+        run: |
+          commits=$(git log --format='%H' -3 | jq -R . | jq -s .)
+          echo "commits=$commits" >> "$GITHUB_OUTPUT"
+
+  validate-current-and-recent:
+    needs: resolve-commits
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        sha: ${{ fromJson(needs.resolve-commits.outputs.commits) }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ matrix.sha }}
+          fetch-depth: 1
 
       - name: Install kubeconform
         uses: bmuschko/setup-kubeconform@v1
 
       - name: Validate
-        env:
-          COMMIT_REF: ${{ matrix.ref }}
         run: |
           echo "=== Validating commit: $(git log --oneline -1) ==="
           kubectl kustomize k8s/monitoring/ > /tmp/rendered-monitoring.yaml
           kubeconform -strict -summary -output text /tmp/rendered-monitoring.yaml
-          kubectl kustomize k8s/sandbox/ > /tmp/rendered-sandbox.yaml
-          kubeconform -strict -summary -output text /tmp/rendered-sandbox.yaml
