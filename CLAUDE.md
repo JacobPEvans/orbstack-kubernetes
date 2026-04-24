@@ -69,7 +69,6 @@ Directory layout:
 
 - `k8s/monitoring/` - Kustomize base manifests for the monitoring stack (portable, no real paths)
 - `k8s/overlays/local/` - Generated overlay with real volume paths (gitignored)
-- `k8s/sandbox/` - AI sandbox container manifests (populated in a follow-up PR)
 - `scripts/` - Deployment and overlay generation scripts
 - `docker/` - Dockerfiles for ephemeral AI containers
 - `packs/` - (removed — packs now installed via `cribl pack install` from GitHub releases at pod startup). Edge: cc-edge-claude-code-otel, cc-edge-gemini-antigravity-io, cc-edge-vscode-io. Stream: cc-stream-github-copilot-rest-io. Note: `.crbl` downloads have no checksum/signature verification — acceptable for local OrbStack dev stack.

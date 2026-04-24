@@ -33,3 +33,6 @@ __pycache__/
 
 # Local settings (personal, machine-specific — not shared)
 *.local.*
+
+# Claude Code local state (session skills, auto-generated)
+.claude/skills/
