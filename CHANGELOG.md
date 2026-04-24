@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.9.10](https://github.com/JacobPEvans/orbstack-kubernetes/compare/v1.9.9...v1.9.10) (2026-04-24)
+
+
+### Bug Fixes
+
+* **ci:** repair validate-merged matrix refs and repo-health-audit import ([#195](https://github.com/JacobPEvans/orbstack-kubernetes/issues/195)) ([a4fd79c](https://github.com/JacobPEvans/orbstack-kubernetes/commit/a4fd79c82bf9397f48533477cc3bba68dc16c39b))
+
 ## [1.9.9](https://github.com/JacobPEvans/orbstack-kubernetes/compare/v1.9.8...v1.9.9) (2026-04-24)
 
 
