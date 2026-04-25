@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.9.11](https://github.com/JacobPEvans/orbstack-kubernetes/compare/v1.9.10...v1.9.11) (2026-04-25)
+
+
+### Bug Fixes
+
+* **bifrost:** remove deprecated timeout vars ([#185](https://github.com/JacobPEvans/orbstack-kubernetes/issues/185)) ([5cbfefd](https://github.com/JacobPEvans/orbstack-kubernetes/commit/5cbfefd22dd7f8d823af768b41c211afbb832682))
+
 ## [1.9.10](https://github.com/JacobPEvans/orbstack-kubernetes/compare/v1.9.9...v1.9.10) (2026-04-24)
 
 
