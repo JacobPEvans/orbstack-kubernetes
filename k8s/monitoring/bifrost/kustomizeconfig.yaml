@@ -1,3 +1,0 @@
-varReference:
-  - kind: ConfigMap
-    path: data/config.json

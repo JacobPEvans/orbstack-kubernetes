@@ -34,8 +34,8 @@ def _base_yaml_files_with_hostpath() -> list[Path]:
     return sorted(f for f in BASE_DIR.rglob("*.yaml") if "kustomization" not in f.name and "hostPath" in f.read_text())
 
 
-def _render_bifrost_config() -> dict:
-    """Render Bifrost Kustomize output and return parsed config.json."""
+def _render_bifrost_manifests() -> list[dict]:
+    """Render Bifrost Kustomize output and return parsed manifests."""
     if shutil.which("kubectl") is None:
         pytest.skip("kubectl is required to render Bifrost Kustomize manifests")
 
@@ -46,18 +46,29 @@ def _render_bifrost_config() -> dict:
         text=True,
         timeout=KUSTOMIZE_RENDER_TIMEOUT_SECONDS,
     )
-    manifests = list(yaml.safe_load_all(result.stdout))
-    configmaps = [
+    assert "'vars' is deprecated" not in result.stderr, "Bifrost Kustomize build must not use deprecated vars"
+    return [manifest for manifest in yaml.safe_load_all(result.stdout) if manifest]
+
+
+def _bifrost_manifest(manifests: list[dict], kind: str, name: str) -> dict:
+    """Return one rendered Bifrost manifest by kind and name."""
+    matches = [
         manifest
         for manifest in manifests
-        if manifest
-        and manifest.get("kind") == "ConfigMap"
-        and manifest.get("metadata", {}).get("name") == "bifrost-config"
+        if manifest.get("kind") == kind and manifest.get("metadata", {}).get("name") == name
     ]
-    assert len(configmaps) == 1, "Rendered manifests must contain exactly one bifrost-config ConfigMap"
+    assert len(matches) == 1, f"Rendered manifests must contain exactly one {kind}/{name}"
+    return matches[0]
 
-    config_json = configmaps[0]["data"]["config.json"]
+
+def _render_bifrost_config() -> dict:
+    """Render Bifrost Kustomize output and return parsed config.json."""
+    configmap = _bifrost_manifest(_render_bifrost_manifests(), "ConfigMap", "bifrost-config")
+    config_json = configmap["data"]["config.json"]
+
     assert "$(" not in config_json, "Bifrost config contains unresolved Kustomize variables"
+    assert "__DEFAULT_REQUEST_TIMEOUT_IN_SECONDS__" not in config_json
+    assert "__MAX_REQUEST_TIMEOUT_IN_SECONDS__" not in config_json
     return json.loads(config_json)
 
 
@@ -176,21 +187,61 @@ class TestOtelStreamPath:
 class TestBifrostConfig:
     """Verify Bifrost does not inherit upstream 30s timeout defaults."""
 
-    def test_timeout_values_are_defined_as_kustomize_variables(self):
-        """Timeout literals live in ConfigMap annotations and config.json references those variables."""
-        configmap = yaml.safe_load((BIFROST_DIR / "configmap.yaml").read_text())
-        annotations = configmap["metadata"]["annotations"]
-        config_json = configmap["data"]["config.json"]
+    def test_kustomization_does_not_use_deprecated_vars(self):
+        """Bifrost Kustomize config must not use deprecated vars."""
+        kustomization = yaml.safe_load((BIFROST_DIR / "kustomization.yaml").read_text())
 
-        assert annotations["bifrost-timeouts/default_request_timeout_in_seconds"] == str(
+        assert "vars" not in kustomization
+        assert "configurations" not in kustomization
+        assert not (BIFROST_DIR / "kustomizeconfig.yaml").exists()
+
+    def test_timeout_values_are_explicit_in_config_json(self):
+        """Timeout literals live directly in config.json (the canonical source file)."""
+        config_text = (BIFROST_DIR / "config.json").read_text()
+        config = json.loads(config_text)
+
+        assert "$(" not in config_text
+        assert "__DEFAULT_REQUEST_TIMEOUT_IN_SECONDS__" not in config_text
+        assert "__MAX_REQUEST_TIMEOUT_IN_SECONDS__" not in config_text
+        assert config["client"]["mcp_tool_execution_timeout"] == MAX_REQUEST_TIMEOUT_IN_SECONDS
+        assert config["providers"]["openai"]["network_config"]["default_request_timeout_in_seconds"] == (
             DEFAULT_REQUEST_TIMEOUT_IN_SECONDS
         )
-        assert annotations["bifrost-timeouts/max_request_timeout_in_seconds"] == str(MAX_REQUEST_TIMEOUT_IN_SECONDS)
-        assert "$(DEFAULT_REQUEST_TIMEOUT_IN_SECONDS)" in config_json
-        assert "$(MAX_REQUEST_TIMEOUT_IN_SECONDS)" in config_json
+        assert config["providers"]["mlx-local"]["network_config"]["default_request_timeout_in_seconds"] == (
+            MAX_REQUEST_TIMEOUT_IN_SECONDS
+        )
+
+    def test_seed_config_copies_config_without_template_rendering(self):
+        """Bifrost should seed writable config.json with a simple ConfigMap copy."""
+        statefulset = yaml.safe_load((BIFROST_DIR / "statefulset.yaml").read_text())
+        pod_spec = statefulset["spec"]["template"]["spec"]
+        seed_config = next(container for container in pod_spec["initContainers"] if container["name"] == "seed-config")
+        bifrost = next(container for container in pod_spec["containers"] if container["name"] == "bifrost")
+        mounts_by_path = {mount["mountPath"]: mount for mount in bifrost["volumeMounts"]}
+        volumes_by_name = {volume["name"]: volume for volume in pod_spec["volumes"]}
+
+        assert seed_config["command"] == ["sh", "-c", "cp /config-ro/config.json /app/data/config.json"]
+        assert "env" not in seed_config
+        assert seed_config["volumeMounts"] == [
+            {"name": "config-ro", "mountPath": "/config-ro", "readOnly": True},
+            {"name": "data", "mountPath": "/app/data"},
+        ]
+        assert mounts_by_path["/app/data"]["name"] == "data"
+        assert "/app/data/config.json" not in mounts_by_path
+        assert volumes_by_name["config-ro"]["configMap"] == {"name": "bifrost-config"}
+
+    def test_rendered_kustomize_output_keeps_direct_config_json(self):
+        """Rendered manifests must retain direct config.json without deprecated Kustomize vars."""
+        configmap = _bifrost_manifest(_render_bifrost_manifests(), "ConfigMap", "bifrost-config")
+        config = json.loads(configmap["data"]["config.json"])
+
+        assert "config.template.json" not in configmap["data"]
+        assert "default_request_timeout_in_seconds" not in configmap["data"]
+        assert "max_request_timeout_in_seconds" not in configmap["data"]
+        assert config["client"]["mcp_tool_execution_timeout"] == MAX_REQUEST_TIMEOUT_IN_SECONDS
 
     def test_request_timeouts_are_explicit_after_render(self):
-        """All providers must set explicit request timeouts via rendered Kustomize variables."""
+        """All providers must set explicit request timeouts in Bifrost config.json."""
         config = _render_bifrost_config()
 
         assert config["client"]["mcp_tool_execution_timeout"] == MAX_REQUEST_TIMEOUT_IN_SECONDS
