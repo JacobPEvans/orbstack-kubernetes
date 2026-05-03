@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.9.15](https://github.com/JacobPEvans/orbstack-kubernetes/compare/v1.9.14...v1.9.15) (2026-05-03)
+
+
+### Bug Fixes
+
+* **ci:** remove deprecated app-id secret passthrough ([8d509fe](https://github.com/JacobPEvans/orbstack-kubernetes/commit/8d509fe8bc6711e30904e4f9824764044f4453f0))
+
 ## [1.9.14](https://github.com/JacobPEvans/orbstack-kubernetes/compare/v1.9.13...v1.9.14) (2026-05-03)
 
 
