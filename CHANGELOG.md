@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.9.14](https://github.com/JacobPEvans/orbstack-kubernetes/compare/v1.9.13...v1.9.14) (2026-05-03)
+
+
+### Bug Fixes
+
+* **deps:** refresh gh-aw action SHA pins ([#208](https://github.com/JacobPEvans/orbstack-kubernetes/issues/208)) ([c12af37](https://github.com/JacobPEvans/orbstack-kubernetes/commit/c12af37f45cf97ca06d905ca9b9238d33ee44bc2))
+
 ## [1.9.13](https://github.com/JacobPEvans/orbstack-kubernetes/compare/v1.9.12...v1.9.13) (2026-04-29)
 
 
