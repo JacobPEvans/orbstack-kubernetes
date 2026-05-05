@@ -75,6 +75,15 @@ data:
                 : (datatype||'claude-code-unknown').replace('claude-code-','claude:code:')
             - name: source
               value: "source || 'cribl-stream'"
+      - id: mask
+        filter: "true"
+        disabled: false
+        conf:
+          rules:
+            - regex: '/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g'
+              replacement: '*'
+            - regex: '/\b(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\b/g'
+              replacement: '*'
   pipelines-route.yml: |
     id: default
     groups: {}
