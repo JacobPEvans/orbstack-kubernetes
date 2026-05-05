@@ -32,6 +32,11 @@ jobs:
         run: |
           kubeconform -strict -summary -output text /tmp/rendered-monitoring.yaml
 
+      - name: Validate Bifrost config schema
+        run: |
+          pip install "check-jsonschema==0.37.2"
+          make validate-bifrost-config
+
       - name: Lint YAML
         run: |
           pip install yamllint

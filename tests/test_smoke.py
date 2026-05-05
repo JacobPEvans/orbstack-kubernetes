@@ -5,6 +5,7 @@ Fast and safe to run at any time.
 """
 
 import json
+import time
 
 import pytest
 import requests
@@ -18,6 +19,8 @@ from conftest import (
     kubectl_json,
     port_forward_get,
 )
+
+EXPECTED_BIFROST_PROVIDERS = {"openai", "gemini", "openrouter", "mlx-local"}
 
 EXPECTED_CRONJOBS = [
     "pipeline-heartbeat",
@@ -269,6 +272,53 @@ class TestBifrostHealth:
         assert "json" in content_type, f"Expected JSON content-type, got: {content_type}"
         data = resp.json()
         assert "data" in data or "error" in data, f"Expected 'data' or 'error' key in /v1/models response, got: {data}"
+
+    def test_bifrost_provider_keys_loaded(self):
+        """Bifrost must serve a 200 /v1/models response with all four configured
+        providers represented.
+
+        Stricter than ``test_bifrost_models_endpoint`` (which tolerates a 400 for
+        a server that started before secrets landed). This test fails when the
+        Doppler-injected ``bifrost-provider-keys`` Secret is not actually
+        reaching the StatefulSet, or when one of the upstream provider calls
+        used to populate the model list is failing — both visible to clients as
+        "Bifrost isn't working".
+
+        Retries for up to 30s to absorb the Doppler K8s Operator reconcile
+        window after a fresh deploy. Fails hard after that.
+        """
+        deadline = time.time() + 30
+        last_status = None
+        last_body = None
+        last_prefixes: set[str] = set()
+        while time.time() < deadline:
+            try:
+                resp = requests.get(f"{BIFROST_URL}/v1/models", timeout=5)
+            except requests.exceptions.ConnectionError as exc:
+                pytest.fail(f"Cannot connect to Bifrost at {BIFROST_URL}: {exc}")
+            last_status = resp.status_code
+            last_body = resp.text[:300]
+            if resp.status_code == 200:
+                models = resp.json().get("data", [])
+                if isinstance(models, list) and len(models) >= 4:
+                    last_prefixes = {
+                        m.get("id", "").split("/", 1)[0]
+                        for m in models
+                        if isinstance(m, dict) and "/" in m.get("id", "")
+                    }
+                    if EXPECTED_BIFROST_PROVIDERS.issubset(last_prefixes):
+                        return
+            time.sleep(2)
+
+        missing = EXPECTED_BIFROST_PROVIDERS - last_prefixes
+        pytest.fail(
+            f"Bifrost /v1/models did not surface every provider within 30s. "
+            f"Last status: {last_status}. Missing providers: {sorted(missing)}. "
+            f"Present prefixes: {sorted(last_prefixes)}. Last body: {last_body!r}. "
+            f"Likely causes: bifrost-provider-keys Secret missing/stale, "
+            f"DopplerSecret failing to reconcile, or vllm-mlx down "
+            f"(mlx-local list_models requires the host LaunchAgent on :11434)."
+        )
 
 
 @pytest.mark.usefixtures("cluster_ready")

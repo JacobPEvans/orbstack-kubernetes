@@ -119,6 +119,17 @@ repos:
         args: [--config, .markdown-link-check.json]
 
   # ---------------------------------------------------------------------------
+  # JSON schema validation
+  # ---------------------------------------------------------------------------
+  - repo: https://github.com/python-jsonschema/check-jsonschema
+    rev: 0.37.2
+    hooks:
+      - id: check-jsonschema
+        name: Validate Bifrost config against repo schema
+        files: ^k8s/monitoring/bifrost/config\.json$
+        args: [--schemafile, k8s/monitoring/bifrost/config.schema.json]
+
+  # ---------------------------------------------------------------------------
   # Kustomize validation
   # ---------------------------------------------------------------------------
   - repo: local
