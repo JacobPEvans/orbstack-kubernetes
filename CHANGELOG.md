@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.10.0](https://github.com/JacobPEvans/orbstack-kubernetes/compare/v1.9.16...v1.10.0) (2026-05-06)
+
+
+### Features
+
+* **bifrost:** config schema + smoke hardening; chore: drop cspell ([#214](https://github.com/JacobPEvans/orbstack-kubernetes/issues/214)) ([192eb0a](https://github.com/JacobPEvans/orbstack-kubernetes/commit/192eb0a61e8e7ecfda2c103d34f2cba76af0390e))
+
 ## [1.9.16](https://github.com/JacobPEvans/orbstack-kubernetes/compare/v1.9.15...v1.9.16) (2026-05-04)
 
 
