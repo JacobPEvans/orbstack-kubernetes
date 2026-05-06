@@ -1,0 +1,150 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/JacobPEvans/orbstack-kubernetes/blob/main/k8s/monitoring/bifrost/config.schema.json",
+  "title": "Bifrost gateway config (local validation)",
+  "description": "Local schema enforcing the contract between this repo's Bifrost config and the deployed gateway. Catches drift before deploy: missing providers, wrong env-var references, drifted mlx-local routing, missing timeouts. Does NOT replace the upstream getbifrost.ai schema; it asserts the additional invariants this repo cares about.",
+  "type": "object",
+  "additionalProperties": true,
+  "required": ["client", "providers"],
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "description": "Upstream Bifrost schema URL; preserved for editor tooling."
+    },
+    "client": {
+      "type": "object",
+      "required": ["mcp_tool_execution_timeout"],
+      "additionalProperties": true,
+      "properties": {
+        "mcp_tool_execution_timeout": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Max seconds for an MCP tool call routed via Bifrost."
+        }
+      }
+    },
+    "providers": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["openai", "gemini", "openrouter", "mlx-local"],
+      "description": "Locked to the four providers this stack supports. ANTHROPIC is intentionally absent — Claude Code talks to Anthropic directly. To add a provider, update both this schema and the deploy.",
+      "properties": {
+        "openai": {"$ref": "#/definitions/cloudProvider"},
+        "gemini": {"$ref": "#/definitions/cloudProvider"},
+        "openrouter": {"$ref": "#/definitions/cloudProvider"},
+        "mlx-local": {"$ref": "#/definitions/mlxLocalProvider"}
+      }
+    }
+  },
+  "definitions": {
+    "providerKeyCommon": {
+      "type": "object",
+      "required": ["name", "value", "models", "weight"],
+      "additionalProperties": false,
+      "properties": {
+        "name": {"type": "string", "minLength": 1},
+        "value": {"type": "string"},
+        "models": {
+          "type": "array",
+          "description": "Empty array means the key applies to every model under this provider."
+        },
+        "weight": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        }
+      }
+    },
+    "cloudProviderKey": {
+      "allOf": [
+        {"$ref": "#/definitions/providerKeyCommon"},
+        {
+          "properties": {
+            "value": {
+              "type": "string",
+              "pattern": "^env\\.[A-Z][A-Z0-9_]*$",
+              "description": "Cloud providers MUST reference a Doppler-injected env var. The literal 'not-needed' is rejected here on purpose — accepting it would let a broken config silently strip the API key requirement."
+            }
+          }
+        }
+      ]
+    },
+    "mlxLocalKey": {
+      "allOf": [
+        {"$ref": "#/definitions/providerKeyCommon"},
+        {
+          "properties": {
+            "value": {
+              "type": "string",
+              "const": "not-needed",
+              "description": "vllm-mlx accepts any token but requires *some* string. 'not-needed' is the literal sentinel; anything else may indicate a copy-paste mistake."
+            }
+          }
+        }
+      ]
+    },
+    "cloudProvider": {
+      "type": "object",
+      "required": ["keys", "network_config"],
+      "additionalProperties": true,
+      "properties": {
+        "keys": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"$ref": "#/definitions/cloudProviderKey"}
+        },
+        "network_config": {
+          "type": "object",
+          "required": ["default_request_timeout_in_seconds"],
+          "additionalProperties": true,
+          "properties": {
+            "default_request_timeout_in_seconds": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        }
+      }
+    },
+    "mlxLocalProvider": {
+      "type": "object",
+      "required": ["keys", "network_config", "custom_provider_config"],
+      "additionalProperties": false,
+      "properties": {
+        "keys": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"$ref": "#/definitions/mlxLocalKey"}
+        },
+        "network_config": {
+          "type": "object",
+          "required": ["base_url", "default_request_timeout_in_seconds"],
+          "additionalProperties": false,
+          "properties": {
+            "base_url": {
+              "type": "string",
+              "const": "http://host.docker.internal:11434",
+              "description": "MUST be host.docker.internal:11434 — Bifrost reaches the macOS-hosted vllm-mlx server through Docker's host alias. Any other URL means the local MLX path is broken."
+            },
+            "default_request_timeout_in_seconds": {
+              "type": "integer",
+              "minimum": 60,
+              "description": "Cold-load of large MLX models can exceed 60s. Below this threshold means we will routinely time out on first request after a model swap."
+            }
+          }
+        },
+        "custom_provider_config": {
+          "type": "object",
+          "required": ["base_provider_type"],
+          "additionalProperties": true,
+          "properties": {
+            "base_provider_type": {
+              "type": "string",
+              "const": "openai",
+              "description": "vllm-mlx exposes an OpenAI-compatible API; mlx-local is wired as a custom provider on top of openai."
+            }
+          }
+        }
+      }
+    }
+  }
+}

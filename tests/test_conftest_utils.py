@@ -52,7 +52,7 @@ class TestKubectlSecret:
                 kubectl_secret("my-secret", "any-key")
 
     def test_decodes_non_ascii_values(self):
-        raw = "pässwörд"  # cspell:disable-line
+        raw = "pässwörд"
         encoded = base64.b64encode(raw.encode()).decode()
         data = {"data": {"key": encoded}}
         with patch("conftest.kubectl_json", return_value=data):

@@ -112,13 +112,6 @@
 
 * **docs:** stop CLAUDE.md from triggering Doppler commands ([e0264da](https://github.com/JacobPEvans/orbstack-kubernetes/commit/e0264daae7cc29b450c26a0372230152f4b8be1d))
 
-## [1.9.0](https://github.com/JacobPEvans/orbstack-kubernetes/compare/v1.8.5...v1.9.0) (2026-04-12)
-
-
-### Features
-
-* **cspell:** migrate to shared org-wide dictionary hierarchy ([778115a](https://github.com/JacobPEvans/orbstack-kubernetes/commit/778115a2bf5a933b96e948f1e960f8d8752f6d83))
-
 ## [1.8.5](https://github.com/JacobPEvans/orbstack-kubernetes/compare/v1.8.4...v1.8.5) (2026-04-11)
 
 
