@@ -13,15 +13,17 @@
 #   make check-bifrost
 #
 # Environment overrides:
-#   KUBE_CONTEXT     (default: orbstack)
-#   KUBE_NAMESPACE   (default: monitoring)
-#   BIFROST_URL      (default: http://localhost:30080)
-#   MLX_URL          (default: http://localhost:11434)
-#   PAL_CUSTOM_MODELS (default: ~/.config/pal-mcp/custom_models.json)
+#   KUBE_CONTEXT       (default: orbstack)
+#   KUBE_NAMESPACE     (default: monitoring)
+#   DOPPLER_NAMESPACE  (default: doppler-operator-system)
+#   BIFROST_URL        (default: http://localhost:30080)
+#   MLX_URL            (default: http://localhost:11434)
+#   PAL_CUSTOM_MODELS  (default: ~/.config/pal-mcp/custom_models.json)
 set -euo pipefail
 
 CONTEXT="${KUBE_CONTEXT:-orbstack}"
 NAMESPACE="${KUBE_NAMESPACE:-monitoring}"
+DOPPLER_NAMESPACE="${DOPPLER_NAMESPACE:-doppler-operator-system}"
 BIFROST_URL="${BIFROST_URL:-http://localhost:30080}"
 MLX_URL="${MLX_URL:-http://localhost:11434}"
 PAL_CUSTOM_MODELS="${PAL_CUSTOM_MODELS:-$HOME/.config/pal-mcp/custom_models.json}"
@@ -63,13 +65,17 @@ check_pod() {
     fail "$name" "kubectl unable to query pods — is OrbStack/cluster running?"
     return
   fi
+  # All matching pods must be Ready. During a StatefulSet rolling update the
+  # old pod is Ready while the new one is starting; "any ready" would mask
+  # that the current pod is broken. Use a pod-level Ready condition (not
+  # per-container ready) so we don't count terminating sidecars.
   local total ready
   total=$(jq '.items | length' <<<"$json")
-  ready=$(jq '[.items[].status.containerStatuses[]? | select(.ready==true)] | length' <<<"$json")
-  if [ "$total" -ge 1 ] && [ "$ready" -ge 1 ]; then
-    pass "$name" "$ready/$total container(s) ready"
+  ready=$(jq '[.items[] | select((.status.conditions // []) | any(.type=="Ready" and .status=="True"))] | length' <<<"$json")
+  if [ "$total" -ge 1 ] && [ "$ready" -eq "$total" ]; then
+    pass "$name" "$ready/$total pod(s) Ready"
   else
-    fail "$name" "$ready/$total ready — try: kubectl -n $NAMESPACE describe pod -l app=bifrost"
+    fail "$name" "$ready/$total Ready (rollout in progress?) — try: kubectl -n $NAMESPACE describe pod -l app=bifrost"
   fi
 }
 
@@ -150,8 +156,8 @@ check_provider_secret() {
 check_doppler_sync() {
   local name="6. DopplerSecret sync status"
   local json
-  if ! json=$(kubectl --context "$CONTEXT" -n doppler-operator-system get dopplersecret bifrost-provider-keys -o json 2>/dev/null); then
-    warn "$name" "DopplerSecret CR not found in doppler-operator-system — operator may not be installed"
+  if ! json=$(kubectl --context "$CONTEXT" -n "$DOPPLER_NAMESPACE" get dopplersecret bifrost-provider-keys -o json 2>/dev/null); then
+    warn "$name" "DopplerSecret CR not found in $DOPPLER_NAMESPACE — operator may not be installed (override DOPPLER_NAMESPACE if elsewhere)"
     return
   fi
   local status reason
@@ -230,10 +236,17 @@ check_pal_custom_models() {
     return
   fi
   # Each entry's "model_name" (or "id") must be in <provider>/<rest> form, and the
-  # provider must be one of the four Bifrost providers.
+  # provider must be one of the four Bifrost providers. Branch on the top-level
+  # type so this works for {models:[...]} (real PAL format), {data:[...]}
+  # (OpenAI-style), and bare-array shapes — the previous .[]?//.data[]? form
+  # silently skipped object payloads.
   local bad
   bad=$(jq -r '
-    [(.[]? // .data[]? // empty) | (.model_name // .id // empty)]
+    (if type == "array" then .
+     elif (.models | type) == "array" then .models
+     elif (.data | type) == "array" then .data
+     else [] end)
+    | map(.model_name // .id // empty)
     | map(select(length > 0))
     | map(select((contains("/") | not) or (split("/")[0] | IN("openai","gemini","openrouter","mlx-local") | not)))
     | join(", ")
@@ -248,21 +261,30 @@ check_pal_custom_models() {
 # 11. Repo deny-list scan ----------------------------------------------------
 check_repo_deny_list() {
   local name="11. repo slug deny-list"
-  local roots=("$REPO_ROOT/k8s" "$REPO_ROOT/scripts" "$REPO_ROOT/docker")
+  # Scan the entire repo so we catch slugs in .github/workflows/, tests/, docs,
+  # or any future top-level dir. The grep --exclude-dir flags drop generated
+  # caches and venvs that would otherwise cause noise.
+  # Common args (match the patterns we care about across all candidate paths)
+  local grep_common=(
+    -rEn
+    --include='*.yaml' --include='*.yml' --include='*.json' --include='*.sh'
+    --exclude='check-bifrost*'
+    --exclude-dir='.git'
+    --exclude-dir='.venv'
+    --exclude-dir='.direnv'
+    --exclude-dir='.pytest_cache'
+    --exclude-dir='.ruff_cache'
+    --exclude-dir='node_modules'
+    --exclude-dir='overlays'
+  )
   local found=()
   # 11a. Hard-banned literal slugs
   local banned_literal_hits
-  banned_literal_hits=$(grep -rEn 'openrouter/free' \
-    --include='*.yaml' --include='*.yml' --include='*.json' --include='*.sh' \
-    --exclude='check-bifrost*' \
-    "${roots[@]}" 2>/dev/null || true)
+  banned_literal_hits=$(grep "${grep_common[@]}" 'openrouter/free' "$REPO_ROOT" 2>/dev/null || true)
   [ -n "$banned_literal_hits" ] && found+=("openrouter/free:" "$banned_literal_hits")
   # 11b. Bare mlx-community/... (must be prefixed with mlx-local/)
   local bare_mlx_hits
-  bare_mlx_hits=$(grep -rEn 'mlx-community/' \
-    --include='*.yaml' --include='*.yml' --include='*.json' --include='*.sh' \
-    --exclude='check-bifrost*' \
-    "${roots[@]}" 2>/dev/null \
+  bare_mlx_hits=$(grep "${grep_common[@]}" 'mlx-community/' "$REPO_ROOT" 2>/dev/null \
     | grep -v 'mlx-local/mlx-community/' \
     | grep -v 'config\.schema\.json' \
     || true)

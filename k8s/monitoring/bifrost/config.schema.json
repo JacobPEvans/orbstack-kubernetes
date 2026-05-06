@@ -37,17 +37,13 @@
     }
   },
   "definitions": {
-    "providerKey": {
+    "providerKeyCommon": {
       "type": "object",
       "required": ["name", "value", "models", "weight"],
       "additionalProperties": false,
       "properties": {
         "name": {"type": "string", "minLength": 1},
-        "value": {
-          "type": "string",
-          "pattern": "^(env\\.[A-Z][A-Z0-9_]*|not-needed)$",
-          "description": "Either env.<VAR> referencing a Doppler-injected secret, or the literal 'not-needed' for keyless providers (mlx-local)."
-        },
+        "value": {"type": "string"},
         "models": {
           "type": "array",
           "description": "Empty array means the key applies to every model under this provider."
@@ -58,6 +54,34 @@
         }
       }
     },
+    "cloudProviderKey": {
+      "allOf": [
+        {"$ref": "#/definitions/providerKeyCommon"},
+        {
+          "properties": {
+            "value": {
+              "type": "string",
+              "pattern": "^env\\.[A-Z][A-Z0-9_]*$",
+              "description": "Cloud providers MUST reference a Doppler-injected env var. The literal 'not-needed' is rejected here on purpose — accepting it would let a broken config silently strip the API key requirement."
+            }
+          }
+        }
+      ]
+    },
+    "mlxLocalKey": {
+      "allOf": [
+        {"$ref": "#/definitions/providerKeyCommon"},
+        {
+          "properties": {
+            "value": {
+              "type": "string",
+              "const": "not-needed",
+              "description": "vllm-mlx accepts any token but requires *some* string. 'not-needed' is the literal sentinel; anything else may indicate a copy-paste mistake."
+            }
+          }
+        }
+      ]
+    },
     "cloudProvider": {
       "type": "object",
       "required": ["keys", "network_config"],
@@ -66,7 +90,7 @@
         "keys": {
           "type": "array",
           "minItems": 1,
-          "items": {"$ref": "#/definitions/providerKey"}
+          "items": {"$ref": "#/definitions/cloudProviderKey"}
         },
         "network_config": {
           "type": "object",
@@ -89,7 +113,7 @@
         "keys": {
           "type": "array",
           "minItems": 1,
-          "items": {"$ref": "#/definitions/providerKey"}
+          "items": {"$ref": "#/definitions/mlxLocalKey"}
         },
         "network_config": {
           "type": "object",

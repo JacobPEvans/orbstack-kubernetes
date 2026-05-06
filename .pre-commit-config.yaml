@@ -126,8 +126,16 @@ repos:
     hooks:
       - id: check-jsonschema
         name: Validate Bifrost config against repo schema
-        files: ^k8s/monitoring/bifrost/config\.json$
-        args: [--schemafile, k8s/monitoring/bifrost/config.schema.json]
+        # Triggered by changes to either the config or the schema itself —
+        # tightening the schema must re-validate the config it governs.
+        # pass_filenames=false + explicit positional path so the same target
+        # is checked regardless of which file triggered the run.
+        files: ^k8s/monitoring/bifrost/config(\.schema)?\.json$
+        args:
+          - --schemafile
+          - k8s/monitoring/bifrost/config.schema.json
+          - k8s/monitoring/bifrost/config.json
+        pass_filenames: false
 
   # ---------------------------------------------------------------------------
   # Kustomize validation

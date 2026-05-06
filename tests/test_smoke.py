@@ -20,8 +20,6 @@ from conftest import (
     port_forward_get,
 )
 
-EXPECTED_BIFROST_PROVIDERS = {"openai", "gemini", "openrouter", "mlx-local"}
-
 EXPECTED_CRONJOBS = [
     "pipeline-heartbeat",
     "heartbeat-splunk",
@@ -274,50 +272,46 @@ class TestBifrostHealth:
         assert "data" in data or "error" in data, f"Expected 'data' or 'error' key in /v1/models response, got: {data}"
 
     def test_bifrost_provider_keys_loaded(self):
-        """Bifrost must serve a 200 /v1/models response with all four configured
-        providers represented.
+        """Bifrost must serve a 200 /v1/models response with a non-empty data
+        list — the cheap, cluster-local signal that Doppler-injected provider
+        keys actually reached the StatefulSet.
 
-        Stricter than ``test_bifrost_models_endpoint`` (which tolerates a 400 for
-        a server that started before secrets landed). This test fails when the
-        Doppler-injected ``bifrost-provider-keys`` Secret is not actually
-        reaching the StatefulSet, or when one of the upstream provider calls
-        used to populate the model list is failing — both visible to clients as
-        "Bifrost isn't working".
+        Tier 1 (smoke) intentionally does NOT assert per-provider coverage:
+        list_models calls hit upstream providers, and a transient OpenAI/Gemini
+        outage would otherwise mark the cluster unhealthy when the cluster
+        itself is fine. Per-provider coverage is checked in the diagnostic
+        (``scripts/check-bifrost.sh`` check 4).
 
-        Retries for up to 30s to absorb the Doppler K8s Operator reconcile
-        window after a fresh deploy. Fails hard after that.
+        Without secrets, Bifrost returns HTTP 400 (bifrost-provider-keys
+        Secret empty) — that is the failure mode this test catches. Retries
+        for up to 30s on ConnectionError or non-200 responses to absorb pod
+        restarts and the Doppler K8s Operator reconcile window.
         """
         deadline = time.time() + 30
-        last_status = None
-        last_body = None
-        last_prefixes: set[str] = set()
+        last_status: object = None
+        last_body: object = ""
         while time.time() < deadline:
             try:
                 resp = requests.get(f"{BIFROST_URL}/v1/models", timeout=5)
             except requests.exceptions.ConnectionError as exc:
-                pytest.fail(f"Cannot connect to Bifrost at {BIFROST_URL}: {exc}")
+                last_status = f"ConnectionError: {exc}"
+                last_body = ""
+                time.sleep(2)
+                continue
             last_status = resp.status_code
             last_body = resp.text[:300]
             if resp.status_code == 200:
                 models = resp.json().get("data", [])
-                if isinstance(models, list) and len(models) >= 4:
-                    last_prefixes = {
-                        m.get("id", "").split("/", 1)[0]
-                        for m in models
-                        if isinstance(m, dict) and "/" in m.get("id", "")
-                    }
-                    if EXPECTED_BIFROST_PROVIDERS.issubset(last_prefixes):
-                        return
+                if isinstance(models, list) and len(models) >= 1:
+                    return
             time.sleep(2)
 
-        missing = EXPECTED_BIFROST_PROVIDERS - last_prefixes
         pytest.fail(
-            f"Bifrost /v1/models did not surface every provider within 30s. "
-            f"Last status: {last_status}. Missing providers: {sorted(missing)}. "
-            f"Present prefixes: {sorted(last_prefixes)}. Last body: {last_body!r}. "
-            f"Likely causes: bifrost-provider-keys Secret missing/stale, "
-            f"DopplerSecret failing to reconcile, or vllm-mlx down "
-            f"(mlx-local list_models requires the host LaunchAgent on :11434)."
+            f"Bifrost /v1/models did not return 200 with a non-empty data "
+            f"list within 30s. Last status: {last_status}. Last body: "
+            f"{last_body!r}. Likely cause: bifrost-provider-keys Secret "
+            f"missing/stale or DopplerSecret failing to reconcile. "
+            f"Run scripts/check-bifrost.sh for full triage."
         )
 
 
