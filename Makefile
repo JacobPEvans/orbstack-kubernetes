@@ -1,4 +1,4 @@
-.PHONY: help validate validate-schemas validate-bifrost-config check-bifrost generate-overlay deploy deploy-doppler status logs build-images test test-e2e test-smoke test-pipeline test-forwarding test-sourcetypes test-unit test-all test-setup warmup warmup-e2e full-power power-save power-status monitoring-up monitoring-down clean runner-pull runner-kubeconfig runner-foreground runner-start runner-stop runner-status runner-logs runner-doctor runner-doctor-container runner-doctor-github runner-doctor-mounts runner-doctor-cluster runner-doctor-launchagent runner-install-launchagent runner-uninstall-launchagent runner-print-label
+.PHONY: help validate validate-schemas validate-bifrost-config generate-overlay deploy deploy-doppler status logs build-images test test-e2e test-smoke test-pipeline test-forwarding test-sourcetypes test-unit test-all test-setup warmup warmup-e2e full-power power-save power-status monitoring-up monitoring-down clean runner-pull runner-kubeconfig runner-foreground runner-start runner-stop runner-status runner-logs runner-doctor runner-doctor-container runner-doctor-github runner-doctor-mounts runner-doctor-cluster runner-doctor-launchagent runner-install-launchagent runner-uninstall-launchagent runner-print-label
 
 CONTEXT ?= orbstack
 NAMESPACE := monitoring
@@ -23,9 +23,6 @@ validate-schemas: ## Validate rendered manifests against K8s schemas
 
 validate-bifrost-config: ## Validate Bifrost config.json against the repo schema
 	check-jsonschema --schemafile k8s/monitoring/bifrost/config.schema.json k8s/monitoring/bifrost/config.json
-
-check-bifrost: ## Run Bifrost gateway health diagnostic
-	./scripts/check-bifrost.sh
 
 generate-overlay: ## Generate local overlay with real volume paths
 	./scripts/generate-overlay.sh

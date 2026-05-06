@@ -279,8 +279,7 @@ class TestBifrostHealth:
         Tier 1 (smoke) intentionally does NOT assert per-provider coverage:
         list_models calls hit upstream providers, and a transient OpenAI/Gemini
         outage would otherwise mark the cluster unhealthy when the cluster
-        itself is fine. Per-provider coverage is checked in the diagnostic
-        (``scripts/check-bifrost.sh`` check 4).
+        itself is fine.
 
         Without secrets, Bifrost returns HTTP 400 (bifrost-provider-keys
         Secret empty) — that is the failure mode this test catches. Retries
@@ -310,8 +309,7 @@ class TestBifrostHealth:
             f"Bifrost /v1/models did not return 200 with a non-empty data "
             f"list within 30s. Last status: {last_status}. Last body: "
             f"{last_body!r}. Likely cause: bifrost-provider-keys Secret "
-            f"missing/stale or DopplerSecret failing to reconcile. "
-            f"Run scripts/check-bifrost.sh for full triage."
+            f"missing/stale or DopplerSecret failing to reconcile."
         )
 
 
