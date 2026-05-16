@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.11.0](https://github.com/JacobPEvans/orbstack-kubernetes/compare/v1.10.3...v1.11.0) (2026-05-16)
+
+
+### Features
+
+* **docker:** add idrac-webtop stack for legacy iDRAC 6 access ([b9203c6](https://github.com/JacobPEvans/orbstack-kubernetes/commit/b9203c606b3bc0d5dce0386c24a6daae6be71df1))
+
 ## [1.10.3](https://github.com/JacobPEvans/orbstack-kubernetes/compare/v1.10.2...v1.10.3) (2026-05-14)
 
 
