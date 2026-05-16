@@ -17,7 +17,9 @@ export DEBIAN_FRONTEND=noninteractive
 apt-get update
 # openjdk-8-jre is required by OpenWebStart's install4j launcher (it refuses
 # to start without a JRE 1.8). The .deb does NOT bundle a JRE.
-apt-get install -y --no-install-recommends curl ca-certificates jq firefox openjdk-8-jre
+# ipmitool gives a CLI fallback (power on/off, sensor reads, sel list) for
+# when the JNLP viewer is overkill.
+apt-get install -y --no-install-recommends curl ca-certificates jq firefox openjdk-8-jre ipmitool
 
 DEB_URL=$(curl -fsSL https://api.github.com/repos/karakun/OpenWebStart/releases/latest \
   | jq -r '.assets[] | select(.name | test("linux.*\\.deb$")) | .browser_download_url' \

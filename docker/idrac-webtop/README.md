@@ -29,6 +29,17 @@ To reach iDRAC:
 4. Log in to the iDRAC web UI.
 5. **Console → Launch** — the `.jnlp` file opens in OpenWebStart automatically and the KVM window appears inside the desktop.
 
+### CLI fallback: ipmitool
+
+For quick power/sensor/SEL operations without launching the full Java viewer, open a terminal inside the webtop and use `ipmitool` against the iDRAC's IPMI-over-LAN endpoint:
+
+```sh
+ipmitool -I lanplus -H <idrac-ip> -U root -P <password> chassis status
+ipmitool -I lanplus -H <idrac-ip> -U root -P <password> chassis power on|off|cycle|reset
+ipmitool -I lanplus -H <idrac-ip> -U root -P <password> sel list
+ipmitool -I lanplus -H <idrac-ip> -U root -P <password> sensor list
+```
+
 Tear down:
 
 ```sh
