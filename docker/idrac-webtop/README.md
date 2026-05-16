@@ -43,9 +43,16 @@ ipmitool -I lanplus -H <idrac-ip> -U root -P <password> sensor list
 Tear down:
 
 ```sh
-docker compose down       # keep volume (faster next boot)
-docker compose down -v    # nuke everything (re-runs OpenWebStart install)
+docker compose stop       # keep container + volume; `docker compose start` resumes instantly
+docker compose down       # remove container; volume persists (Firefox profile/cookies kept)
+docker compose down -v    # remove container AND volume; nothing remains
 ```
+
+Note: `down` removes the container, which discards the writable layer where
+`apt`-installed packages live (Firefox, OpenWebStart, JRE 8, ipmitool). The
+init hook re-runs and re-installs them on the next `up`. Use `stop`/`start`
+instead of `down`/`up` if you want the fastest reuse — the install step is
+~30-60s, not free.
 
 ## Architecture
 
@@ -62,15 +69,14 @@ Components:
 
 - **Image:** `lscr.io/linuxserver/webtop:ubuntu-xfce` — full XFCE desktop streamed to a browser tab on port 3000.
 - **Platform:** pinned to `linux/amd64`. iDRAC 6's `viewer.jnlp` ships only x86_64 native libs and OpenWebStart auto-downloads an x86_64 JRE to satisfy the JNLP request. On Apple Silicon Macs, OrbStack runs the container under Rosetta. On amd64 hosts this is a no-op.
-- **Init hook:** `init/10-install-openwebstart.sh` is bind-mounted into the linuxserver.io `/custom-cont-init.d/` hook directory and runs as root on every container start. Idempotent via `/config/.openwebstart-installed` sentinel.
-  - **First boot:** apt-update, install Firefox + `openjdk-8-jre` (required by OpenWebStart's install4j launcher), resolve the latest OpenWebStart `.deb` from `karakun/OpenWebStart` GitHub releases, install it, write `INSTALL4J_JAVA_HOME` to `/etc/environment` so the GUI session and Firefox-launched `.jnlp` handlers find the JRE, seed a Firefox bookmark pointing at `${IDRAC_URL}`, write sentinel.
-  - **Subsequent boots:** sentinel exists, script exits immediately.
-  - Force re-install: `docker compose down -v` to drop the volume.
-- **Persistence:** named volume `idrac-webtop-config` for `/config` (Firefox profile, installed packages, bookmark).
+- **Init hook:** `init/10-install-openwebstart.sh` is bind-mounted into the linuxserver.io `/custom-cont-init.d/` directory and runs as root on every container start. Idempotent via `command -v javaws` — the check looks at the container's writable layer (where `apt` installs live), so it correctly re-runs after `docker compose down/up` recreates the container.
+  - **Fresh container:** apt-update, install Firefox + `openjdk-8-jre` (required by OpenWebStart's install4j launcher) + `ipmitool`, resolve the latest OpenWebStart `.deb` from `karakun/OpenWebStart` GitHub releases, install it, write `INSTALL4J_JAVA_HOME` to `/etc/environment` so the GUI session and Firefox-launched `.jnlp` handlers find the JRE, write a Firefox `policies.json` setting both the iDRAC homepage and a toolbar bookmark.
+  - **Same container restart:** `javaws` is on PATH, script exits immediately.
+- **Persistence:** named volume `idrac-webtop-config` for `/config` (Firefox profile, cookies). Apt-installed packages live in the writable container layer and do NOT persist across `down/up`; the init hook reinstalls them on the next start.
 - **Config:** `IDRAC_URL` required in `.env` (gitignored). `.env.example` is checked in with a scrubbed placeholder.
 
 Security posture (mirrors `../actions-runner/docker-compose.yml`):
 
 - No `docker.sock` mount, no host networking, no privileged mode.
-- Port 3000 binds to all interfaces by default. If your Mac is on an untrusted network, change `"3000:3000"` to `"127.0.0.1:3000:3000"` in `docker-compose.yml`.
+- Port 3000 binds to `127.0.0.1` only — no LAN exposure of the unauthenticated XFCE session (or of the cached iDRAC login inside it). If you need LAN access, put a reverse proxy with auth in front.
 - `.env` (containing the real iDRAC IP) is gitignored.

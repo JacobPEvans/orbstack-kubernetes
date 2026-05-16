@@ -1,17 +1,19 @@
 #!/usr/bin/env bash
-# linuxserver.io custom-cont-init hook: install OpenWebStart and seed a Firefox
-# bookmark for the iDRAC URL on first container boot. Idempotent via sentinel.
+# linuxserver.io custom-cont-init hook: install OpenWebStart on first container
+# boot and seed an iDRAC bookmark via Firefox enterprise policies. Idempotent
+# via "is javaws already on PATH?" — guarantees correctness when the named
+# /config volume persists across `docker compose down/up` but the writable
+# container layer (where apt installs live) does not.
 set -euo pipefail
 
-SENTINEL=/config/.openwebstart-installed
-if [[ -f "$SENTINEL" ]]; then
-  echo "[idrac-webtop] OpenWebStart already installed, skipping init."
+if command -v javaws >/dev/null 2>&1; then
+  echo "[idrac-webtop] OpenWebStart already installed in this container, skipping init."
   exit 0
 fi
 
 : "${IDRAC_URL:?IDRAC_URL must be set in the container environment}"
 
-echo "[idrac-webtop] Installing OpenWebStart and Firefox..."
+echo "[idrac-webtop] Installing OpenWebStart, Firefox, JRE 8, and ipmitool..."
 
 export DEBIAN_FRONTEND=noninteractive
 apt-get update
@@ -37,41 +39,34 @@ rm -f /tmp/openwebstart.deb
 
 # Tell the install4j launcher where to find the JRE 8. /etc/environment is
 # read by PAM and inherited by all sessions (terminal and GUI), so Firefox-
-# launched .jnlp handlers see it too. Arch-suffix on the path is correct for
-# both arm64 (Apple Silicon) and amd64 hosts because Debian's openjdk-8-jre
-# uses /usr/lib/jvm/java-8-openjdk-<dpkg-arch>.
+# launched .jnlp handlers see it too. The arch suffix tracks dpkg so the path
+# is right on both amd64 hosts and arm64 hosts running this container under
+# Rosetta (Debian's openjdk-8-jre uses /usr/lib/jvm/java-8-openjdk-<dpkg-arch>).
 JAVA8_HOME="/usr/lib/jvm/java-8-openjdk-$(dpkg --print-architecture)"
 if ! grep -q '^INSTALL4J_JAVA_HOME=' /etc/environment 2>/dev/null; then
   printf 'INSTALL4J_JAVA_HOME=%s\n' "$JAVA8_HOME" | tee -a /etc/environment >/dev/null
 fi
 
-# Seed a Firefox bookmark for the iDRAC URL. Writing to bookmarks.html in the
-# default profile dir works on first profile creation; if Firefox has already
-# created a profile, drop the file under it. The directory pattern is
-# /config/.mozilla/firefox/<random>.default* — glob to find it (or create one
-# under a known name so the bookmark is always available).
-PROFILE_PARENT=/config/.mozilla/firefox
-mkdir -p "$PROFILE_PARENT"
-PROFILE_DIR=$(find "$PROFILE_PARENT" -maxdepth 1 -type d -name '*.default*' | head -n1 || true)
-if [[ -z "$PROFILE_DIR" ]]; then
-  PROFILE_DIR="$PROFILE_PARENT/idrac.default"
-  mkdir -p "$PROFILE_DIR"
-fi
+# Seed the iDRAC bookmark via Firefox enterprise policies. policies.json is
+# profile-independent and applied on every Firefox start, so no profile dir
+# detection, no bookmarks.html parsing quirks, no chown on /config/.mozilla.
+mkdir -p /usr/lib/firefox/distribution
+cat >/usr/lib/firefox/distribution/policies.json <<JSON
+{
+  "policies": {
+    "Bookmarks": [
+      {
+        "Title": "iDRAC (R410)",
+        "URL": "${IDRAC_URL}",
+        "Placement": "toolbar"
+      }
+    ],
+    "Homepage": {
+      "URL": "${IDRAC_URL}",
+      "Locked": false
+    }
+  }
+}
+JSON
 
-cat >"$PROFILE_DIR/bookmarks.html" <<HTML
-<!DOCTYPE NETSCAPE-Bookmark-file-1>
-<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=UTF-8">
-<TITLE>Bookmarks</TITLE>
-<H1>Bookmarks Menu</H1>
-<DL><p>
-  <DT><A HREF="${IDRAC_URL}">iDRAC (R410)</A>
-</DL><p>
-HTML
-
-# Ensure the profile is readable by the desktop user (PUID/PGID from compose).
-chown -R "${PUID:-1000}:${PGID:-1000}" "$PROFILE_PARENT"
-
-touch "$SENTINEL"
-chown "${PUID:-1000}:${PGID:-1000}" "$SENTINEL"
-
-echo "[idrac-webtop] Init complete. Open http://localhost:3000 and click the iDRAC bookmark."
+echo "[idrac-webtop] Init complete. Open http://localhost:3000 — iDRAC is the homepage and a toolbar bookmark."

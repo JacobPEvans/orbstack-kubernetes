@@ -26,7 +26,11 @@ services:
     platform: linux/amd64
     restart: unless-stopped
     ports:
-      - "3000:3000"
+      # Localhost-only by default. The webtop has no auth out of the box, so
+      # binding 0.0.0.0:3000 would let anyone on the LAN reach the desktop —
+      # and the cached iDRAC session inside it. Drop the 127.0.0.1: prefix
+      # only if you've added a reverse proxy with auth in front.
+      - "127.0.0.1:3000:3000"
     environment:
       PUID: ${UID:-1000}
       PGID: ${GID:-1000}
