@@ -18,6 +18,12 @@ services:
   webtop:
     container_name: idrac-webtop
     image: lscr.io/linuxserver/webtop:ubuntu-xfce
+    # iDRAC 6's viewer.jnlp ships only x86_64 native libs (USB/HID/KVM) and
+    # OpenWebStart auto-downloads an x86_64 JRE to match the JNLP request.
+    # Pin the whole container to amd64 so Apple Silicon hosts run it under
+    # Rosetta — everything (webtop, JRE, JNLP native libs) is amd64 end-to-end.
+    # On amd64 hosts this line is a no-op.
+    platform: linux/amd64
     restart: unless-stopped
     ports:
       - "3000:3000"

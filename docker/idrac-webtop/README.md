@@ -50,6 +50,7 @@ Mac browser ──http://localhost:3000──▶ webtop container (XFCE + Firefo
 Components:
 
 - **Image:** `lscr.io/linuxserver/webtop:ubuntu-xfce` — full XFCE desktop streamed to a browser tab on port 3000.
+- **Platform:** pinned to `linux/amd64`. iDRAC 6's `viewer.jnlp` ships only x86_64 native libs and OpenWebStart auto-downloads an x86_64 JRE to satisfy the JNLP request. On Apple Silicon Macs, OrbStack runs the container under Rosetta. On amd64 hosts this is a no-op.
 - **Init hook:** `init/10-install-openwebstart.sh` is bind-mounted into the linuxserver.io `/custom-cont-init.d/` hook directory and runs as root on every container start. Idempotent via `/config/.openwebstart-installed` sentinel.
   - **First boot:** apt-update, install Firefox + `openjdk-8-jre` (required by OpenWebStart's install4j launcher), resolve the latest OpenWebStart `.deb` from `karakun/OpenWebStart` GitHub releases, install it, write `INSTALL4J_JAVA_HOME` to `/etc/environment` so the GUI session and Firefox-launched `.jnlp` handlers find the JRE, seed a Firefox bookmark pointing at `${IDRAC_URL}`, write sentinel.
   - **Subsequent boots:** sentinel exists, script exits immediately.
