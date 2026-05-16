@@ -43,6 +43,10 @@ services:
       # container start, before s6 services come up. The install script is
       # idempotent (sentinel-guarded) so restarts are cheap.
       - ./init:/custom-cont-init.d:ro
+      # Payload files (idrac-launch wrapper + .desktop) that the init hook
+      # installs into the container. Kept out of ./init/ because linuxserver's
+      # runner would otherwise exec idrac-launch.sh as a boot hook.
+      - ./payload:/opt/idrac-payload:ro
 
 volumes:
   idrac-webtop-config:

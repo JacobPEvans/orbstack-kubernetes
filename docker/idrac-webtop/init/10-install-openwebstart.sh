@@ -19,9 +19,13 @@ export DEBIAN_FRONTEND=noninteractive
 apt-get update
 # openjdk-8-jre is required by OpenWebStart's install4j launcher (it refuses
 # to start without a JRE 1.8). The .deb does NOT bundle a JRE.
+# openjdk-8-jdk-headless adds jarsigner (the JRE only ships keytool), needed
+# by idrac-launch to re-sign Dell's unsigned AVCT KVM jars so IcedTea-Web's
+# SecurityDelegateImpl will load them.
 # ipmitool gives a CLI fallback (power on/off, sensor reads, sel list) for
 # when the JNLP viewer is overkill.
-apt-get install -y --no-install-recommends curl ca-certificates jq firefox openjdk-8-jre ipmitool
+# zip is used by idrac-launch to strip stale signature blocks before re-signing.
+apt-get install -y --no-install-recommends curl ca-certificates jq firefox openjdk-8-jre openjdk-8-jdk-headless ipmitool zip
 
 DEB_URL=$(curl -fsSL https://api.github.com/repos/karakun/OpenWebStart/releases/latest \
   | jq -r '.assets[] | select(.name | test("linux.*\\.deb$")) | .browser_download_url' \
@@ -47,9 +51,19 @@ if ! grep -q '^INSTALL4J_JAVA_HOME=' /etc/environment 2>/dev/null; then
   printf 'INSTALL4J_JAVA_HOME=%s\n' "$JAVA8_HOME" | tee -a /etc/environment >/dev/null
 fi
 
-# Seed the iDRAC bookmark via Firefox enterprise policies. policies.json is
-# profile-independent and applied on every Firefox start, so no profile dir
-# detection, no bookmarks.html parsing quirks, no chown on /config/.mozilla.
+# Install the idrac-launch wrapper and its desktop entry. The .desktop file
+# plus update-desktop-database + xdg-mime make double-clicked .jnlp files (and
+# Firefox's "open with" path) route through the wrapper instead of straight
+# into javaws.
+install -m 0755 /opt/idrac-payload/idrac-launch.sh /usr/local/bin/idrac-launch
+install -m 0644 /opt/idrac-payload/idrac-launch.desktop /usr/share/applications/idrac-launch.desktop
+update-desktop-database /usr/share/applications 2>/dev/null || true
+xdg-mime default idrac-launch.desktop application/x-java-jnlp-file 2>/dev/null || true
+
+# Seed the iDRAC bookmark + homepage via Firefox enterprise policies, and
+# wire Firefox's MIME handler so clicks on "Launch Virtual Console" pipe the
+# downloaded JNLP straight into idrac-launch (no Downloads/ detour, no prompt).
+# policies.json is profile-independent and applied on every Firefox start.
 mkdir -p /usr/lib/firefox/distribution
 cat >/usr/lib/firefox/distribution/policies.json <<JSON
 {
@@ -64,9 +78,23 @@ cat >/usr/lib/firefox/distribution/policies.json <<JSON
     "Homepage": {
       "URL": "${IDRAC_URL}",
       "Locked": false
+    },
+    "Handlers": {
+      "mimeTypes": {
+        "application/x-java-jnlp-file": {
+          "action": "useHelperApp",
+          "ask": false,
+          "handlers": [
+            {
+              "name": "iDRAC Launcher",
+              "path": "/usr/local/bin/idrac-launch"
+            }
+          ]
+        }
+      }
     }
   }
 }
 JSON
 
-echo "[idrac-webtop] Init complete. Open http://localhost:3000 — iDRAC is the homepage and a toolbar bookmark."
+echo "[idrac-webtop] Init complete. Open http://localhost:3000 — iDRAC is the homepage and a toolbar bookmark; clicking 'Launch Virtual Console' pipes through /usr/local/bin/idrac-launch."

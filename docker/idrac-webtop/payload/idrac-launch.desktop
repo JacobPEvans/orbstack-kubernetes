@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=iDRAC Launcher
+Comment=Self-sign iDRAC 6 KVM jars and launch the viewer via OpenWebStart
+Exec=/usr/local/bin/idrac-launch %f
+Terminal=false
+MimeType=application/x-java-jnlp-file;
+NoDisplay=true
