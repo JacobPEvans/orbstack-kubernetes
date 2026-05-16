@@ -1,0 +1,63 @@
+#!/usr/bin/env bash
+# linuxserver.io custom-cont-init hook: install OpenWebStart and seed a Firefox
+# bookmark for the iDRAC URL on first container boot. Idempotent via sentinel.
+set -euo pipefail
+
+SENTINEL=/config/.openwebstart-installed
+if [[ -f "$SENTINEL" ]]; then
+  echo "[idrac-webtop] OpenWebStart already installed, skipping init."
+  exit 0
+fi
+
+: "${IDRAC_URL:?IDRAC_URL must be set in the container environment}"
+
+echo "[idrac-webtop] Installing OpenWebStart and Firefox..."
+
+export DEBIAN_FRONTEND=noninteractive
+apt-get update
+apt-get install -y --no-install-recommends curl ca-certificates jq firefox
+
+DEB_URL=$(curl -fsSL https://api.github.com/repos/karakun/OpenWebStart/releases/latest \
+  | jq -r '.assets[] | select(.name | test("linux.*\\.deb$")) | .browser_download_url' \
+  | head -n1)
+
+if [[ -z "$DEB_URL" ]]; then
+  echo "[idrac-webtop] ERROR: could not resolve OpenWebStart .deb asset URL" >&2
+  exit 1
+fi
+
+echo "[idrac-webtop] Downloading $DEB_URL"
+curl -fsSL -o /tmp/openwebstart.deb "$DEB_URL"
+apt-get install -y /tmp/openwebstart.deb
+rm -f /tmp/openwebstart.deb
+
+# Seed a Firefox bookmark for the iDRAC URL. Writing to bookmarks.html in the
+# default profile dir works on first profile creation; if Firefox has already
+# created a profile, drop the file under it. The directory pattern is
+# /config/.mozilla/firefox/<random>.default* — glob to find it (or create one
+# under a known name so the bookmark is always available).
+PROFILE_PARENT=/config/.mozilla/firefox
+mkdir -p "$PROFILE_PARENT"
+PROFILE_DIR=$(find "$PROFILE_PARENT" -maxdepth 1 -type d -name '*.default*' | head -n1 || true)
+if [[ -z "$PROFILE_DIR" ]]; then
+  PROFILE_DIR="$PROFILE_PARENT/idrac.default"
+  mkdir -p "$PROFILE_DIR"
+fi
+
+cat >"$PROFILE_DIR/bookmarks.html" <<HTML
+<!DOCTYPE NETSCAPE-Bookmark-file-1>
+<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=UTF-8">
+<TITLE>Bookmarks</TITLE>
+<H1>Bookmarks Menu</H1>
+<DL><p>
+  <DT><A HREF="${IDRAC_URL}">iDRAC (R410)</A>
+</DL><p>
+HTML
+
+# Ensure the profile is readable by the desktop user (PUID/PGID from compose).
+chown -R "${PUID:-1000}:${PGID:-1000}" "$PROFILE_PARENT"
+
+touch "$SENTINEL"
+chown "${PUID:-1000}:${PGID:-1000}" "$SENTINEL"
+
+echo "[idrac-webtop] Init complete. Open http://localhost:3000 and click the iDRAC bookmark."

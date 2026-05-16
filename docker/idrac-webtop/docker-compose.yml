@@ -1,0 +1,38 @@
+---
+# Browser-accessible XFCE desktop with Firefox + OpenWebStart, used to reach
+# the Dell PowerEdge R410 iDRAC 6 web UI and Java JNLP virtual console.
+#
+# iDRAC 6 requires legacy TLS ciphers + a Java JNLP runtime that modern macOS
+# browsers no longer support. Rather than installing legacy Java on the host,
+# everything legacy lives inside this disposable container.
+#
+# Boot once (first run installs OpenWebStart via /custom-cont-init.d):
+#   cp .env.example .env && $EDITOR .env   # set IDRAC_URL
+#   docker compose up -d
+#   open http://localhost:3000
+#
+# Tear down:
+#   docker compose down       # keep config volume
+#   docker compose down -v    # nuke everything (re-runs init on next up)
+services:
+  webtop:
+    container_name: idrac-webtop
+    image: lscr.io/linuxserver/webtop:ubuntu-xfce
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      PUID: ${UID:-1000}
+      PGID: ${GID:-1000}
+      TZ: America/Indiana/Indianapolis
+      IDRAC_URL: ${IDRAC_URL:?IDRAC_URL must be set in .env (see .env.example)}
+    volumes:
+      # Persistent desktop state: Firefox profile, installed packages, bookmark.
+      - idrac-webtop-config:/config
+      # linuxserver.io init hook directory. Scripts here run as root on every
+      # container start, before s6 services come up. The install script is
+      # idempotent (sentinel-guarded) so restarts are cheap.
+      - ./init:/custom-cont-init.d:ro
+
+volumes:
+  idrac-webtop-config:
