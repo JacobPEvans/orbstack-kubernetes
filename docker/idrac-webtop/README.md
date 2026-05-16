@@ -51,7 +51,7 @@ Components:
 
 - **Image:** `lscr.io/linuxserver/webtop:ubuntu-xfce` — full XFCE desktop streamed to a browser tab on port 3000.
 - **Init hook:** `init/10-install-openwebstart.sh` is bind-mounted into the linuxserver.io `/custom-cont-init.d/` hook directory and runs as root on every container start. Idempotent via `/config/.openwebstart-installed` sentinel.
-  - **First boot:** apt-update, install Firefox, resolve the latest OpenWebStart `.deb` from `karakun/OpenWebStart` GitHub releases, install it, seed a Firefox bookmark pointing at `${IDRAC_URL}`, write sentinel.
+  - **First boot:** apt-update, install Firefox + `openjdk-8-jre` (required by OpenWebStart's install4j launcher), resolve the latest OpenWebStart `.deb` from `karakun/OpenWebStart` GitHub releases, install it, write `INSTALL4J_JAVA_HOME` to `/etc/environment` so the GUI session and Firefox-launched `.jnlp` handlers find the JRE, seed a Firefox bookmark pointing at `${IDRAC_URL}`, write sentinel.
   - **Subsequent boots:** sentinel exists, script exits immediately.
   - Force re-install: `docker compose down -v` to drop the volume.
 - **Persistence:** named volume `idrac-webtop-config` for `/config` (Firefox profile, installed packages, bookmark).

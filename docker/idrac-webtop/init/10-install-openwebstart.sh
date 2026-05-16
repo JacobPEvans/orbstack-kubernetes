@@ -15,7 +15,9 @@ echo "[idrac-webtop] Installing OpenWebStart and Firefox..."
 
 export DEBIAN_FRONTEND=noninteractive
 apt-get update
-apt-get install -y --no-install-recommends curl ca-certificates jq firefox
+# openjdk-8-jre is required by OpenWebStart's install4j launcher (it refuses
+# to start without a JRE 1.8). The .deb does NOT bundle a JRE.
+apt-get install -y --no-install-recommends curl ca-certificates jq firefox openjdk-8-jre
 
 DEB_URL=$(curl -fsSL https://api.github.com/repos/karakun/OpenWebStart/releases/latest \
   | jq -r '.assets[] | select(.name | test("linux.*\\.deb$")) | .browser_download_url' \
@@ -30,6 +32,16 @@ echo "[idrac-webtop] Downloading $DEB_URL"
 curl -fsSL -o /tmp/openwebstart.deb "$DEB_URL"
 apt-get install -y /tmp/openwebstart.deb
 rm -f /tmp/openwebstart.deb
+
+# Tell the install4j launcher where to find the JRE 8. /etc/environment is
+# read by PAM and inherited by all sessions (terminal and GUI), so Firefox-
+# launched .jnlp handlers see it too. Arch-suffix on the path is correct for
+# both arm64 (Apple Silicon) and amd64 hosts because Debian's openjdk-8-jre
+# uses /usr/lib/jvm/java-8-openjdk-<dpkg-arch>.
+JAVA8_HOME="/usr/lib/jvm/java-8-openjdk-$(dpkg --print-architecture)"
+if ! grep -q '^INSTALL4J_JAVA_HOME=' /etc/environment 2>/dev/null; then
+  printf 'INSTALL4J_JAVA_HOME=%s\n' "$JAVA8_HOME" | tee -a /etc/environment >/dev/null
+fi
 
 # Seed a Firefox bookmark for the iDRAC URL. Writing to bookmarks.html in the
 # default profile dir works on first profile creation; if Firefox has already
