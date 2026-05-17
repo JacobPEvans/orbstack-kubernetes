@@ -27,7 +27,9 @@ To reach iDRAC:
 2. Click the **iDRAC (R410)** bookmark.
 3. Accept the self-signed cert.
 4. Log in to the iDRAC web UI.
-5. **Console → Launch** — the `.jnlp` file opens in OpenWebStart automatically and the KVM window appears inside the desktop.
+5. **Console → Launch** — Firefox routes the `viewer.jnlp` through `/usr/local/bin/idrac-launch`, which on first call signs Dell's unsigned AVCT KVM jars with a local self-signed cert (one-time, cached on the `/config` volume), rewrites the JNLP to point at the resigned local copies, and hands the result to OpenWebStart. The KVM window appears inside the desktop.
+
+The signed-jar cache lives at `/config/idrac-viewer/cache/<host>_<port>/`. To force a refresh (e.g. after an iDRAC firmware update), `docker exec idrac-webtop rm -rf /config/idrac-viewer/cache`. The self-signed keystore at `/config/idrac-viewer/keystore.jks` is container-local and not trusted anywhere outside this stack.
 
 ### CLI fallback: ipmitool
 
@@ -70,8 +72,9 @@ Components:
 - **Image:** `lscr.io/linuxserver/webtop:ubuntu-xfce` — full XFCE desktop streamed to a browser tab on port 3000.
 - **Platform:** pinned to `linux/amd64`. iDRAC 6's `viewer.jnlp` ships only x86_64 native libs and OpenWebStart auto-downloads an x86_64 JRE to satisfy the JNLP request. On Apple Silicon Macs, OrbStack runs the container under Rosetta. On amd64 hosts this is a no-op.
 - **Init hook:** `init/10-install-openwebstart.sh` is bind-mounted into the linuxserver.io `/custom-cont-init.d/` directory and runs as root on every container start. Idempotent via `command -v javaws` — the check looks at the container's writable layer (where `apt` installs live), so it correctly re-runs after `docker compose down/up` recreates the container.
-  - **Fresh container:** apt-update, install Firefox + `openjdk-8-jre` (required by OpenWebStart's install4j launcher) + `ipmitool`, resolve the latest OpenWebStart `.deb` from `karakun/OpenWebStart` GitHub releases, install it, write `INSTALL4J_JAVA_HOME` to `/etc/environment` so the GUI session and Firefox-launched `.jnlp` handlers find the JRE, write a Firefox `policies.json` setting both the iDRAC homepage and a toolbar bookmark.
+  - **Fresh container:** apt-update, install Firefox + `openjdk-8-jre` (OpenWebStart's install4j launcher needs JRE 1.8) + `openjdk-8-jdk-headless` (gives `jarsigner`) + `ipmitool` + `zip`, resolve the latest OpenWebStart `.deb` from `karakun/OpenWebStart` GitHub releases, install it, write `INSTALL4J_JAVA_HOME` to `/etc/environment`, install `/usr/local/bin/idrac-launch` and its `.desktop` entry from `./payload/`, wire `xdg-mime` so `.jnlp` files open via the wrapper, write a Firefox `policies.json` setting the iDRAC homepage + toolbar bookmark and registering `application/x-java-jnlp-file` to use `idrac-launch` as its helper.
   - **Same container restart:** `javaws` is on PATH, script exits immediately.
+- **idrac-launch:** `payload/idrac-launch.sh` is bind-mounted into the container at `/opt/idrac-payload/` and copied into place by the init hook. On each invocation it parses the JNLP's codebase + jar/nativelib hrefs; on cache miss it downloads each referenced jar via `curl --tlsv1 --tls-max 1.2 --ciphers DEFAULT@SECLEVEL=0` (the iDRAC 6 TLS stack rejects modern defaults), strips any pre-existing signature blocks, and re-signs each jar with a self-signed RSA-2048 keystore. It then rewrites the JNLP — codebase to `file:///config/idrac-viewer/cache/<host>_<port>/`, hrefs to bare filenames, all `<argument>` tags preserved — and execs `javaws`. This sidesteps IcedTea-Web's hard-coded "unsigned jars + `<all-permissions/>` = abort" check (which no `deployment.properties` flag bypasses).
 - **Persistence:** named volume `idrac-webtop-config` for `/config` (Firefox profile, cookies). Apt-installed packages live in the writable container layer and do NOT persist across `down/up`; the init hook reinstalls them on the next start.
 - **Config:** `IDRAC_URL` required in `.env` (gitignored). `.env.example` is checked in with a scrubbed placeholder.
 
