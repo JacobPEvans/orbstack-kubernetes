@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.12.0](https://github.com/JacobPEvans/orbstack-kubernetes/compare/v1.11.0...v1.12.0) (2026-05-17)
+
+
+### Features
+
+* **docker:** self-sign iDRAC 6 KVM jars to bypass IcedTea-Web gate ([#225](https://github.com/JacobPEvans/orbstack-kubernetes/issues/225)) ([43fdc6b](https://github.com/JacobPEvans/orbstack-kubernetes/commit/43fdc6b0a378c59870a6d9f7cbaf37b33f148fb2))
+
 ## [1.11.0](https://github.com/JacobPEvans/orbstack-kubernetes/compare/v1.10.3...v1.11.0) (2026-05-16)
 
 
