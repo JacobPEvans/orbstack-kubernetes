@@ -89,18 +89,18 @@ if [[ ! -f "$SENTINEL" ]]; then
   echo "[idrac-launch] cache populated at $CACHE_DIR"
 fi
 
-# Rewrite the JNLP: point codebase at the local cache, shorten each jar href
-# to the bare filename, and drop decorative <icon>/<shortcut> tags that point
-# at the iDRAC's HTTPS endpoint (its self-signed cert fails ITW's trust
-# manager and produces alarming-looking stack traces even though the icon is
-# just a splash screen). All <argument> session tokens are preserved verbatim.
+# Rewrite the JNLP: rewrite each jar/nativelib href to point at the locally
+# resigned copy via an absolute file:// URL. Leave codebase untouched so ITW
+# can still parse host:port out of it and compute URLPermissions correctly —
+# without that, the KVM viewer's SecurityManager rejects its own outbound
+# socket to <iDRAC>:5900 with "Connection failed" right after APCP version
+# negotiation. Also drop <icon>/<shortcut> so ITW doesn't trip on the iDRAC's
+# self-signed splash endpoint. All <argument> session tokens preserved.
 REWRITTEN=$(mktemp --suffix=.jnlp)
 trap 'rm -f "$REWRITTEN"' EXIT
 
-ESCAPED_CODEBASE=$(printf '%s' "$CODEBASE" | sed -E 's#[]\[\\/.^$*]#\\&#g')
 sed -E \
-  -e "s#codebase=\"$ESCAPED_CODEBASE\"#codebase=\"file://$CACHE_DIR\"#" \
-  -e 's#href="https?://[^"]*/([^/"]+\.jar)"#href="\1"#g' \
+  -e "s#href=\"https?://[^\"]*/([^/\"]+\\.jar)\"#href=\"file://$CACHE_DIR/\\1\"#g" \
   -e '/<icon[^>]*\/>/d' \
   -e '/<shortcut[^>]*\/>/d' \
   -e '/<shortcut[^>]*>/,/<\/shortcut>/d' \
