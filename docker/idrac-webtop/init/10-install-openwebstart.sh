@@ -25,7 +25,10 @@ apt-get update
 # ipmitool gives a CLI fallback (power on/off, sensor reads, sel list) for
 # when the JNLP viewer is overkill.
 # zip is used by idrac-launch to strip stale signature blocks before re-signing.
-apt-get install -y --no-install-recommends curl ca-certificates jq firefox openjdk-8-jre openjdk-8-jdk-headless ipmitool zip
+# desktop-file-utils + xdg-utils provide update-desktop-database and xdg-mime,
+# used below to register idrac-launch as the .jnlp MIME handler. The
+# linuxserver/webtop base image does not install them by default.
+apt-get install -y --no-install-recommends curl ca-certificates jq firefox openjdk-8-jre openjdk-8-jdk-headless ipmitool zip desktop-file-utils xdg-utils
 
 DEB_URL=$(curl -fsSL https://api.github.com/repos/karakun/OpenWebStart/releases/latest \
   | jq -r '.assets[] | select(.name | test("linux.*\\.deb$")) | .browser_download_url' \
@@ -57,8 +60,8 @@ fi
 # into javaws.
 install -m 0755 /opt/idrac-payload/idrac-launch.sh /usr/local/bin/idrac-launch
 install -m 0644 /opt/idrac-payload/idrac-launch.desktop /usr/share/applications/idrac-launch.desktop
-update-desktop-database /usr/share/applications 2>/dev/null || true
-xdg-mime default idrac-launch.desktop application/x-java-jnlp-file 2>/dev/null || true
+update-desktop-database /usr/share/applications
+xdg-mime default idrac-launch.desktop application/x-java-jnlp-file
 
 # Seed the iDRAC bookmark + homepage via Firefox enterprise policies, and
 # wire Firefox's MIME handler so clicks on "Launch Virtual Console" pipe the
