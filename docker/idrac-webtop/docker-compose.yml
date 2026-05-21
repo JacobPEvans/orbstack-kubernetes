@@ -34,7 +34,6 @@ services:
     environment:
       PUID: ${UID:-1000}
       PGID: ${GID:-1000}
-      TZ: America/Indiana/Indianapolis
       IDRAC_URL: ${IDRAC_URL:?IDRAC_URL must be set in .env (see .env.example)}
     volumes:
       # Persistent desktop state: Firefox profile, installed packages, bookmark.
