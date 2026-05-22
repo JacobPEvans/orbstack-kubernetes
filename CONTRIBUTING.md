@@ -18,6 +18,20 @@ direnv allow      # one-time per worktree
 nix develop
 ```
 
+## Pre-Commit Setup
+
+Install the pre-commit hooks once per fresh clone or new worktree:
+
+```sh
+pre-commit install --hook-type commit-msg --hook-type pre-push
+```
+
+On first-time setup (or after pulling new hook revisions), run the full suite once to verify every hook resolves and passes against the current tree:
+
+```sh
+pre-commit run --all-files
+```
+
 ## Workflow
 
 1. Sync and create a worktree before starting:
