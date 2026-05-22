@@ -156,6 +156,15 @@ repos:
         stages: [pre-push]
 
   # ---------------------------------------------------------------------------
+  # Security: secrets scanning
+  # ---------------------------------------------------------------------------
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.30.1
+    hooks:
+      - id: gitleaks
+        name: Scan for committed secrets
+
+  # ---------------------------------------------------------------------------
   # Security: no real IP addresses
   # ---------------------------------------------------------------------------
   - repo: local
