@@ -151,6 +151,12 @@ def send_trace_with_retry(
 def url_present_in_outputs_yaml(url: str, yaml_text: str) -> bool:
     """Return True if url appears as a 'url:' value in the YAML text.
 
-    Matches lines of the form:  url: <value>  (with optional surrounding whitespace).
+    Matches lines of the form:  url: <value>  with optional surrounding
+    whitespace and an optional matching pair of single or double quotes
+    around the value. The Cribl Stream configmap template wraps the URL
+    in double quotes
+    (k8s/monitoring/cribl-stream-standalone/configmap-cribl-config.yaml),
+    so the deployed outputs.yml renders as `url: "https://..."`; strict
+    unquoted matching gives a false negative.
     """
-    return bool(re.search(rf"^\s*url:\s*{re.escape(url)}\s*$", yaml_text, re.MULTILINE))
+    return bool(re.search(rf"""^\s*url:\s*(['"]?){re.escape(url)}\1\s*$""", yaml_text, re.MULTILINE))
