@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.12.4](https://github.com/JacobPEvans/orbstack-kubernetes/compare/v1.12.3...v1.12.4) (2026-05-24)
+
+
+### Bug Fixes
+
+* **ci:** also ignore historical kubernetes-monitoring self-refs ([#244](https://github.com/JacobPEvans/orbstack-kubernetes/issues/244)) ([c7d3a12](https://github.com/JacobPEvans/orbstack-kubernetes/commit/c7d3a1235cbd09c9789b808037e6d8a40eab85ed))
+
 ## [1.12.3](https://github.com/JacobPEvans/orbstack-kubernetes/compare/v1.12.2...v1.12.3) (2026-05-24)
 
 
