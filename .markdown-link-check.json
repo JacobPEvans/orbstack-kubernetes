@@ -4,7 +4,7 @@
     { "pattern": "^http://127\\.0\\.0\\.1" },
     { "pattern": "^http://cribl" },
     { "pattern": "^http://otel" },
-    { "pattern": "github\\.com/JacobPEvans/kubernetes-monitoring/" }
+    { "pattern": "github\\.com/JacobPEvans/orbstack-kubernetes(/|$)" }
   ],
   "retryOn429": true,
   "retryCount": 3,
