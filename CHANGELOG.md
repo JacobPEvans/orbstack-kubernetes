@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.12.5](https://github.com/JacobPEvans/orbstack-kubernetes/compare/v1.12.4...v1.12.5) (2026-05-24)
+
+
+### Bug Fixes
+
+* **tests:** accept quoted url values in url_present_in_outputs_yaml ([#241](https://github.com/JacobPEvans/orbstack-kubernetes/issues/241)) ([cf933b2](https://github.com/JacobPEvans/orbstack-kubernetes/commit/cf933b21b6c06db4de8ed1b366e43ad0bfc36c52))
+
 ## [1.12.4](https://github.com/JacobPEvans/orbstack-kubernetes/compare/v1.12.3...v1.12.4) (2026-05-24)
 
 
