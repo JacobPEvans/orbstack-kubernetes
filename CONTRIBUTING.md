@@ -23,7 +23,7 @@ nix develop
 Install the pre-commit hooks once per fresh clone or new worktree:
 
 ```sh
-pre-commit install --hook-type commit-msg --hook-type pre-push
+pre-commit install --hook-type pre-commit --hook-type commit-msg --hook-type pre-push
 ```
 
 On first-time setup (or after pulling new hook revisions), run the full suite once to verify every hook resolves and passes against the current tree:
