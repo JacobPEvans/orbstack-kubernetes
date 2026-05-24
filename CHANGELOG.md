@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.12.3](https://github.com/JacobPEvans/orbstack-kubernetes/compare/v1.12.2...v1.12.3) (2026-05-24)
+
+
+### Bug Fixes
+
+* **ci:** repair stale self-ref pattern in markdown-link-check config ([#242](https://github.com/JacobPEvans/orbstack-kubernetes/issues/242)) ([6d1f5a0](https://github.com/JacobPEvans/orbstack-kubernetes/commit/6d1f5a01a9e29f762aebde7fc4174b810574b678))
+
 ## [1.12.2](https://github.com/JacobPEvans/orbstack-kubernetes/compare/v1.12.1...v1.12.2) (2026-05-21)
 
 
