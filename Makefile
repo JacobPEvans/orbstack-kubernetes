@@ -176,11 +176,20 @@ runner-kubeconfig: ## Refresh the runner's kubeconfig (rewrites 127.0.0.1 → k8
 	kubectl config view --context $(CONTEXT) --minify --raw | sed 's|127.0.0.1|k8s.orb.local|g' > $(HOME)/.config/runner-kubeconfig
 	chmod 600 $(HOME)/.config/runner-kubeconfig
 
-runner-foreground: runner-kubeconfig ## Run runner in foreground (used by LaunchAgent)
+# runner-preflight catches the most common silent failure mode: Doppler
+# returns a missing/empty GH_PAT_RUNNER_TOKEN, the compose interpolation
+# error gets buried in stderr, and the LaunchAgent throttles every 30s with
+# nothing visible upstream. This single test fails loud at the top of the
+# stack so the user sees the actionable error in `~/Library/Logs/orbstack-runner/stderr.log`.
+runner-preflight:
+	@doppler run -p $(DOPPLER_RUNNER_PROJ) -c $(DOPPLER_RUNNER_CONFIG) -- \
+	  sh -c 'test -n "$$GH_PAT_RUNNER_TOKEN" || { echo "ERROR: GH_PAT_RUNNER_TOKEN missing from doppler $(DOPPLER_RUNNER_PROJ)/$(DOPPLER_RUNNER_CONFIG). Refresh the fine-grained PAT before retrying." >&2; exit 1; }'
+
+runner-foreground: runner-kubeconfig runner-preflight ## Run runner in foreground (used by LaunchAgent)
 	doppler run -p $(DOPPLER_RUNNER_PROJ) -c $(DOPPLER_RUNNER_CONFIG) -- \
 	  docker compose -f $(RUNNER_COMPOSE) -p $(RUNNER_PROJECT) up
 
-runner-start: runner-kubeconfig ## Start runner in background (manual one-shot)
+runner-start: runner-kubeconfig runner-preflight ## Start runner in background (manual one-shot)
 	doppler run -p $(DOPPLER_RUNNER_PROJ) -c $(DOPPLER_RUNNER_CONFIG) -- \
 	  docker compose -f $(RUNNER_COMPOSE) -p $(RUNNER_PROJECT) up -d
 
@@ -209,8 +218,9 @@ runner-doctor: runner-doctor-container runner-doctor-github runner-doctor-mounts
 
 runner-doctor-container:
 	@echo "─── Container state ───"
-	docker inspect $(RUNNER_CONTAINER) --format 'state: {{.State.Status}}  restartCount: {{.RestartCount}}  exitCode: {{.State.ExitCode}}'
+	docker inspect $(RUNNER_CONTAINER) --format 'state: {{.State.Status}}  health: {{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}  restartCount: {{.RestartCount}}  exitCode: {{.State.ExitCode}}'
 	docker inspect $(RUNNER_CONTAINER) --format '{{eq .State.Status "running"}}' | grep -q '^true$$'
+	docker inspect $(RUNNER_CONTAINER) --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' | grep -qE '^(healthy|starting|none)$$'
 
 runner-doctor-github:
 	@echo "─── GitHub registration ───"
