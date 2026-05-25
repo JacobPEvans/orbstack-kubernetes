@@ -15,3 +15,12 @@ This repository manages Kubernetes manifests and tooling for a local OrbStack de
 ## Dependency Updates
 
 Renovate manages dependency updates with a 3-day stabilization delay. Trusted external GitHub Actions use version tags; untrusted actions use SHA pins. See the org-level [SECURITY.md](https://github.com/JacobPEvans/.github/blob/main/SECURITY.md) for the full dependency trust tier model.
+
+## Supported Versions
+
+This repository targets the Kubernetes versions below. Security fixes are only backported to supported versions.
+
+| Kubernetes Version | Status      |
+| ------------------ | ----------- |
+| 1.30+              | Supported   |
+| <1.30              | Unsupported |
