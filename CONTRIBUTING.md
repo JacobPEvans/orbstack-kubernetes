@@ -34,13 +34,15 @@ pre-commit run --all-files
 
 ## Workflow
 
-1. Sync and create a worktree before starting:
+1. From the main worktree, sync and create a new worktree:
 
    ```sh
-   cd ~/git/orbstack-kubernetes/main
    git fetch --prune origin && git pull
-   git worktree add ~/git/orbstack-kubernetes/<type>/<name> -b <type>/<name> main
+   git worktree add ../<type>/<name> -b <type>/<name> main
    ```
+
+   (The `../<type>/<name>` path keeps the worktree alongside `main/` in
+   whatever directory layout you use locally.)
 
 2. Make changes, then run unit tests (no cluster required):
 
