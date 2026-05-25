@@ -55,7 +55,7 @@ make runner-uninstall-launchagent  # remove LaunchAgent
 
 - **Container failed?** `launchctl kickstart -k gui/$(id -u)/$(make -s runner-print-label)` forces the LaunchAgent to respawn the runner.
 - **Registration stuck?** Delete the orphan via `GH_TOKEN=$(doppler secrets get GH_PAT_RUNNER_TOKEN --plain -p gh-workflow-tokens -c prd) gh api -X DELETE "repos/${GITHUB_REPO}/actions/runners/<id>"`, then `launchctl kickstart -k ...`. Export `GITHUB_REPO` first or substitute your repo slug directly (e.g., from `make -n runner-status`).
-- **LaunchAgent not loaded?** Run `make runner-install-launchagent` from the worktree you want it to point at (typically `~/git/orbstack-kubernetes/main`).
+- **LaunchAgent not loaded?** Run `make runner-install-launchagent` from the worktree you want it to point at (usually the main worktree).
 - **Logs:** `~/Library/Logs/orbstack-runner/{stdout,stderr}.log`.
 
 The runner requires the macOS host to be powered on and OrbStack to be running. Sleep/wake and reboot are handled automatically by the LaunchAgent.

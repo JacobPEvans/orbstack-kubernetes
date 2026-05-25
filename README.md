@@ -17,18 +17,17 @@ Kubernetes monitoring stack for local OrbStack cluster. Collects, processes, and
 
 ## Quick Start
 
-```bash
-# 1. Clone and enter repo
-cd ~/git/orbstack-kubernetes/main
+From a clone of this repo (any local path):
 
-# 2. Set up secrets (one-time)
+```bash
+# 1. Set up secrets (one-time)
 cp secrets.enc.yaml.example secrets.enc.yaml
 sops secrets.enc.yaml
 
-# 3. Deploy (Doppler exports CRIBL_DIST_MASTER_URL, project/config in SOPS)
+# 2. Deploy (Doppler exports CRIBL_DIST_MASTER_URL, project/config in SOPS)
 make deploy-doppler
 
-# 4. Verify
+# 3. Verify
 make status
 ```
 
