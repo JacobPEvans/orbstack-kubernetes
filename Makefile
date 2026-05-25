@@ -9,7 +9,6 @@ MONITORING_STATEFULSETS := otel-collector cribl-edge-managed cribl-edge-standalo
 # Virtual environment configuration
 VENV ?= .venv
 PYTHON ?= $(VENV)/bin/python
-PIP ?= $(VENV)/bin/pip
 SYSTEM_PYTHON ?= python3
 
 VENV_CHECK := test -x $(PYTHON) || { echo "Run 'make test-setup' first to install test dependencies"; exit 1; }
