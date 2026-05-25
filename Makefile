@@ -5,7 +5,14 @@ NAMESPACE := monitoring
 GITHUB_REPO ?= JacobPEvans/orbstack-kubernetes
 KUSTOMIZE_DIRS := k8s/monitoring
 MONITORING_STATEFULSETS := otel-collector cribl-edge-managed cribl-edge-standalone cribl-stream-standalone cribl-mcp-server bifrost
-PYTEST_CHECK := test -x .venv/bin/python || { echo "Run 'make test-setup' first to install test dependencies"; exit 1; }
+
+# Virtual environment configuration
+VENV ?= .venv
+PYTHON ?= $(VENV)/bin/python
+PIP ?= $(VENV)/bin/pip
+SYSTEM_PYTHON ?= python3
+
+VENV_CHECK := test -x $(PYTHON) || { echo "Run 'make test-setup' first to install test dependencies"; exit 1; }
 UNIT_TEST_FILES := tests/test_unit.py tests/test_manifests.py tests/test_conftest_utils.py
 
 help: ## Show all targets
@@ -45,49 +52,49 @@ build-images: ## Build Claude Code and Gemini CLI Docker images
 
 
 test: ## Run all pipeline tests (requires deployed stack)
-	@$(PYTEST_CHECK)
-	.venv/bin/python -m pytest tests/ -v
+	@$(VENV_CHECK)
+	$(PYTHON) -m pytest tests/ -v
 
 test-smoke: ## Run smoke tests only (pod health + services)
-	@$(PYTEST_CHECK)
-	.venv/bin/python -m pytest tests/test_smoke.py -v
+	@$(VENV_CHECK)
+	$(PYTHON) -m pytest tests/test_smoke.py -v
 
 test-pipeline: ## Run OTLP pipeline tests (sends test traces)
-	@$(PYTEST_CHECK)
-	.venv/bin/python -m pytest tests/test_pipeline.py -v
+	@$(VENV_CHECK)
+	$(PYTHON) -m pytest tests/test_pipeline.py -v
 
 test-forwarding: ## Run forwarding tests (Cribl pipeline)
-	@$(PYTEST_CHECK)
-	.venv/bin/python -m pytest tests/test_forwarding.py -v
+	@$(VENV_CHECK)
+	$(PYTHON) -m pytest tests/test_forwarding.py -v
 
 test-sourcetypes: ## Run per-sourcetype E2E tests
-	@$(PYTEST_CHECK)
-	.venv/bin/python -m pytest tests/test_sourcetypes.py -v
+	@$(VENV_CHECK)
+	$(PYTHON) -m pytest tests/test_sourcetypes.py -v
 
 test-unit: ## Run unit tests (no cluster required)
-	@$(PYTEST_CHECK)
-	.venv/bin/python -m pytest $(UNIT_TEST_FILES) -v
+	@$(VENV_CHECK)
+	$(PYTHON) -m pytest $(UNIT_TEST_FILES) -v
 
 test-e2e: ## Run full test suite in order (smoke → pipeline → forwarding → sourcetypes)
-	@$(PYTEST_CHECK)
-	.venv/bin/python -m pytest tests/test_smoke.py tests/test_pipeline.py tests/test_forwarding.py tests/test_sourcetypes.py -v --tb=short -x
+	@$(VENV_CHECK)
+	$(PYTHON) -m pytest tests/test_smoke.py tests/test_pipeline.py tests/test_forwarding.py tests/test_sourcetypes.py -v --tb=short -x
 
 test-all: ## Run all tests in order: unit → smoke → pipeline → forwarding → sourcetypes
-	@$(PYTEST_CHECK)
-	.venv/bin/python -m pytest $(UNIT_TEST_FILES) tests/test_smoke.py tests/test_pipeline.py tests/test_forwarding.py tests/test_sourcetypes.py -v --tb=short
+	@$(VENV_CHECK)
+	$(PYTHON) -m pytest $(UNIT_TEST_FILES) tests/test_smoke.py tests/test_pipeline.py tests/test_forwarding.py tests/test_sourcetypes.py -v --tb=short
 
 test-setup: ## Install test dependencies in virtual environment
-	python3 -m venv .venv
-	.venv/bin/python -m pip install -r tests/requirements.txt
+	$(SYSTEM_PYTHON) -m venv $(VENV)
+	$(PYTHON) -m pip install -r tests/requirements.txt
 
 warmup-e2e: ## Verify full pipeline delivers traces to Splunk (blocking gate)
-	@$(PYTEST_CHECK)
-	.venv/bin/python3 scripts/warmup-e2e.py
+	@$(VENV_CHECK)
+	$(PYTHON) scripts/warmup-e2e.py
 
 warmup: ## Send warmup trace to prime OTEL gRPC connection (retries 3x)
-	@$(PYTEST_CHECK)
+	@$(VENV_CHECK)
 	@for attempt in 1 2 3; do \
-		if .venv/bin/python3 scripts/otel-warmup.py; then \
+		if $(PYTHON) scripts/otel-warmup.py; then \
 			echo "Warmup succeeded on attempt $$attempt"; \
 			break; \
 		elif [ "$$attempt" -lt 3 ]; then \
