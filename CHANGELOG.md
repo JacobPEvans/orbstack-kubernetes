@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.12.7](https://github.com/JacobPEvans/orbstack-kubernetes/compare/v1.12.6...v1.12.7) (2026-05-25)
+
+
+### Bug Fixes
+
+* **makefile:** invoke pytest via python -m to avoid baked shebang ([#250](https://github.com/JacobPEvans/orbstack-kubernetes/issues/250)) ([4dfc23b](https://github.com/JacobPEvans/orbstack-kubernetes/commit/4dfc23b7520cc84af499763fb63928b8e135d14e))
+
 ## [1.12.6](https://github.com/JacobPEvans/orbstack-kubernetes/compare/v1.12.5...v1.12.6) (2026-05-25)
 
 
