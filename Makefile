@@ -5,7 +5,7 @@ NAMESPACE := monitoring
 GITHUB_REPO ?= JacobPEvans/orbstack-kubernetes
 KUSTOMIZE_DIRS := k8s/monitoring
 MONITORING_STATEFULSETS := otel-collector cribl-edge-managed cribl-edge-standalone cribl-stream-standalone cribl-mcp-server bifrost
-PYTEST_CHECK := test -x .venv/bin/pytest || { echo "Run 'make test-setup' first to install test dependencies"; exit 1; }
+PYTEST_CHECK := test -x .venv/bin/python || { echo "Run 'make test-setup' first to install test dependencies"; exit 1; }
 UNIT_TEST_FILES := tests/test_unit.py tests/test_manifests.py tests/test_conftest_utils.py
 
 help: ## Show all targets
@@ -46,39 +46,39 @@ build-images: ## Build Claude Code and Gemini CLI Docker images
 
 test: ## Run all pipeline tests (requires deployed stack)
 	@$(PYTEST_CHECK)
-	.venv/bin/pytest tests/ -v
+	.venv/bin/python -m pytest tests/ -v
 
 test-smoke: ## Run smoke tests only (pod health + services)
 	@$(PYTEST_CHECK)
-	.venv/bin/pytest tests/test_smoke.py -v
+	.venv/bin/python -m pytest tests/test_smoke.py -v
 
 test-pipeline: ## Run OTLP pipeline tests (sends test traces)
 	@$(PYTEST_CHECK)
-	.venv/bin/pytest tests/test_pipeline.py -v
+	.venv/bin/python -m pytest tests/test_pipeline.py -v
 
 test-forwarding: ## Run forwarding tests (Cribl pipeline)
 	@$(PYTEST_CHECK)
-	.venv/bin/pytest tests/test_forwarding.py -v
+	.venv/bin/python -m pytest tests/test_forwarding.py -v
 
 test-sourcetypes: ## Run per-sourcetype E2E tests
 	@$(PYTEST_CHECK)
-	.venv/bin/pytest tests/test_sourcetypes.py -v
+	.venv/bin/python -m pytest tests/test_sourcetypes.py -v
 
 test-unit: ## Run unit tests (no cluster required)
 	@$(PYTEST_CHECK)
-	.venv/bin/pytest $(UNIT_TEST_FILES) -v
+	.venv/bin/python -m pytest $(UNIT_TEST_FILES) -v
 
 test-e2e: ## Run full test suite in order (smoke → pipeline → forwarding → sourcetypes)
 	@$(PYTEST_CHECK)
-	.venv/bin/pytest tests/test_smoke.py tests/test_pipeline.py tests/test_forwarding.py tests/test_sourcetypes.py -v --tb=short -x
+	.venv/bin/python -m pytest tests/test_smoke.py tests/test_pipeline.py tests/test_forwarding.py tests/test_sourcetypes.py -v --tb=short -x
 
 test-all: ## Run all tests in order: unit → smoke → pipeline → forwarding → sourcetypes
 	@$(PYTEST_CHECK)
-	.venv/bin/pytest $(UNIT_TEST_FILES) tests/test_smoke.py tests/test_pipeline.py tests/test_forwarding.py tests/test_sourcetypes.py -v --tb=short
+	.venv/bin/python -m pytest $(UNIT_TEST_FILES) tests/test_smoke.py tests/test_pipeline.py tests/test_forwarding.py tests/test_sourcetypes.py -v --tb=short
 
 test-setup: ## Install test dependencies in virtual environment
 	python3 -m venv .venv
-	.venv/bin/pip install -r tests/requirements.txt
+	.venv/bin/python -m pip install -r tests/requirements.txt
 
 warmup-e2e: ## Verify full pipeline delivers traces to Splunk (blocking gate)
 	@$(PYTEST_CHECK)
