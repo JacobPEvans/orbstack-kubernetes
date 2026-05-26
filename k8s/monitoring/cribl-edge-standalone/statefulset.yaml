@@ -85,11 +85,15 @@ spec:
             - name: CRIBL_BEFORE_START_CMD_5
               value: >-
                 grep -q 'session.*\.jsonl' /opt/cribl/data/default/cc-edge-gemini-antigravity/inputs.yml
-                || sed -i '/- ".*session.*\.json"/a\      - "*session-*.jsonl"' /opt/cribl/data/default/cc-edge-gemini-antigravity/inputs.yml
+                && exit 0;
+                sed -i '/- ".*session.*\.json"/a\      - "*session-*.jsonl"' /opt/cribl/data/default/cc-edge-gemini-antigravity/inputs.yml
+                || echo "WARNING: gemini jsonl pattern patch skipped (pack inputs.yml not present?)" >&2
             - name: CRIBL_BEFORE_START_CMD_6
               value: >-
                 grep -q '\.jsonl' /opt/cribl/data/default/cc-edge-claude-code/inputs.yml
-                || sed -i '/- ".*\.json"/a\      - "*.jsonl"' /opt/cribl/data/default/cc-edge-claude-code/inputs.yml
+                && exit 0;
+                sed -i '/- ".*\.json"/a\      - "*.jsonl"' /opt/cribl/data/default/cc-edge-claude-code/inputs.yml
+                || echo "WARNING: claude-code jsonl pattern patch skipped (pack inputs.yml not present?)" >&2
           volumeMounts:
             - name: claude-logs
               mountPath: /home/claude/.claude
