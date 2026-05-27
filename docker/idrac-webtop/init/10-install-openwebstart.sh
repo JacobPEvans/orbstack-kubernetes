@@ -63,6 +63,17 @@ install -m 0644 /opt/idrac-payload/idrac-launch.desktop /usr/share/applications/
 update-desktop-database /usr/share/applications
 xdg-mime default idrac-launch.desktop application/x-java-jnlp-file
 
+# Pre-create the runtime state dir under abc ownership. If a root-owned
+# invocation ever races ahead of the first abc-owned one (e.g. someone runs
+# `docker exec idrac-webtop /usr/local/bin/idrac-launch ...` without `-u abc`),
+# subsequent abc-owned mkdir calls into /config/idrac-viewer/ fail with
+# "Permission denied". Pre-creating here eliminates the race and any stale
+# root-owned state from a prior container start.
+install -d -o abc -g abc /config/idrac-viewer /config/idrac-viewer/cache
+if [[ -d /config/idrac-viewer ]]; then
+  chown -R abc:abc /config/idrac-viewer
+fi
+
 # Seed the iDRAC bookmark + homepage via Firefox enterprise policies, and
 # wire Firefox's MIME handler so clicks on "Launch Virtual Console" pipe the
 # downloaded JNLP straight into idrac-launch (no Downloads/ detour, no prompt).
