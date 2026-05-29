@@ -17,7 +17,12 @@
 services:
   webtop:
     container_name: idrac-webtop
-    image: lscr.io/linuxserver/webtop:ubuntu-xfce
+    # KasmVNC variant, not the default Selkies-GStreamer one. Selkies's
+    # encoders require AVX2 SIMD; Apple Rosetta 2 doesn't emulate AVX2, so
+    # on Apple Silicon the default `ubuntu-xfce` tag falls back to a slow
+    # X11 capture path that stalls Safari with "Waiting for stream".
+    # KasmVNC has no AVX2 dependency. Both variants share the same /config.
+    image: lscr.io/linuxserver/webtop:ubuntu-xfce-kasm
     # iDRAC 6's viewer.jnlp ships only x86_64 native libs (USB/HID/KVM) and
     # OpenWebStart auto-downloads an x86_64 JRE to match the JNLP request.
     # Pin the whole container to amd64 so Apple Silicon hosts run it under
