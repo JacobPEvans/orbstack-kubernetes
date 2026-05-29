@@ -94,13 +94,20 @@ fi
 # can still parse host:port out of it and compute URLPermissions correctly —
 # without that, the KVM viewer's SecurityManager rejects its own outbound
 # socket to <iDRAC>:5900 with "Connection failed" right after APCP version
-# negotiation. Also drop <icon>/<shortcut> so ITW doesn't trip on the iDRAC's
-# self-signed splash endpoint. All <argument> session tokens preserved.
+# negotiation. Also strip the root <jnlp href="..."> attribute so javaws
+# does not try to re-resolve the original download path — iDRAC 6 generates
+# href values containing literal '+' characters (URL-encoded spaces), and
+# javaws's URL parser decodes '+' back to space on the file:// side, yielding
+# a FileNotFoundException on a path that does exist on disk under its real
+# name. Dropping the attribute makes the JNLP self-contained. Also drop
+# <icon>/<shortcut> so ITW doesn't trip on the iDRAC's self-signed splash
+# endpoint. All <argument> session tokens preserved.
 REWRITTEN=$(mktemp --suffix=.jnlp)
 trap 'rm -f "$REWRITTEN"' EXIT
 
 sed -E \
   -e "s#href=\"https?://[^\"]*/([^/\"]+\\.jar)\"#href=\"file://$CACHE_DIR/\\1\"#g" \
+  -e 's/(<jnlp[^>]*) +href="[^"]*"/\1/' \
   -e '/<icon[^>]*\/>/d' \
   -e '/<shortcut[^>]*\/>/d' \
   -e '/<shortcut[^>]*>/,/<\/shortcut>/d' \
