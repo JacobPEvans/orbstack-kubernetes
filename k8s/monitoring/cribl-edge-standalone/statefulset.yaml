@@ -78,6 +78,22 @@ spec:
                 /opt/cribl/bin/cribl pack install
                 -s https://github.com/JacobPEvans/cc-edge-vscode-io/releases/download/v1.0.1/cc-edge-vscode-io.crbl
                 || echo "WARNING: vscode-io pack install failed" >&2
+            # Local patch: gemini CLI 0.43.0 and Claude Code write .jsonl session
+            # files; the gemini-antigravity-io and claude-code-otel packs
+            # only match .json in their released versions.
+            # Remove these CMDs after pack releases add .jsonl natively.
+            - name: CRIBL_BEFORE_START_CMD_5
+              value: >-
+                grep -q 'session.*\.jsonl' /opt/cribl/data/default/cc-edge-gemini-antigravity/inputs.yml
+                && exit 0;
+                sed -i '/- ".*session.*\.json"/a\      - "*session-*.jsonl"' /opt/cribl/data/default/cc-edge-gemini-antigravity/inputs.yml
+                || echo "WARNING: gemini jsonl pattern patch skipped (pack inputs.yml not present?)" >&2
+            - name: CRIBL_BEFORE_START_CMD_6
+              value: >-
+                grep -q '\.jsonl' /opt/cribl/data/default/cc-edge-claude-code/inputs.yml
+                && exit 0;
+                sed -i '/- ".*\.json"/a\      - "*.jsonl"' /opt/cribl/data/default/cc-edge-claude-code/inputs.yml
+                || echo "WARNING: claude-code jsonl pattern patch skipped (pack inputs.yml not present?)" >&2
           volumeMounts:
             - name: claude-logs
               mountPath: /home/claude/.claude
