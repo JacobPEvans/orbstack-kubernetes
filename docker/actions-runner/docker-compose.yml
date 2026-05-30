@@ -41,7 +41,7 @@ services:
     # Digest pin (Renovate-managed): forces deterministic pulls and keeps a
     # supply-chain audit trail. Renovate's docker-compose manager updates the
     # digest when myoung34 publishes a new ubuntu-jammy build.
-    image: myoung34/github-runner:ubuntu-jammy@sha256:0d483ed415f456654622c73516ed0cd499a39e9c7fe5f6718b2a2c8b0f76e218
+    image: myoung34/github-runner:ubuntu-jammy@sha256:ad2e8fb78c40a8ca02273e0c81d252eb5fcb5b738a7e2b37c28360ea2ba6b727
     restart: unless-stopped
     # Healthcheck: the runner doesn't expose a port but it absolutely needs
     # to be able to reach api.github.com to register and pull jobs. A failing
