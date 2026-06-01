@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.12.8](https://github.com/dryvist/orbstack-kubernetes/compare/v1.12.7...v1.12.8) (2026-06-01)
+
+
+### Bug Fixes
+
+* **ci:** repoint release-please caller to org-native reusable workflow ([#261](https://github.com/dryvist/orbstack-kubernetes/issues/261)) ([7f6cab0](https://github.com/dryvist/orbstack-kubernetes/commit/7f6cab08593b44abb2f25dd1adc5197c6f5ff208))
+* **ci:** retarget reusable-workflow uses: refs to current org homes ([#258](https://github.com/dryvist/orbstack-kubernetes/issues/258)) ([9e9c2d1](https://github.com/dryvist/orbstack-kubernetes/commit/9e9c2d1b3ea4669817da1dc77b7da311b70f5802))
+* **edge:** patch pack FileMonitor patterns to match .jsonl session files ([#254](https://github.com/dryvist/orbstack-kubernetes/issues/254)) ([73cac8d](https://github.com/dryvist/orbstack-kubernetes/commit/73cac8d80d8000803e4f7fed66d87061ca8aa22a))
+* **idrac-webtop:** handle '+' in JNLP filenames + pre-create config dir as abc ([#256](https://github.com/dryvist/orbstack-kubernetes/issues/256)) ([7a11520](https://github.com/dryvist/orbstack-kubernetes/commit/7a11520d79215c64ee7de6afdbc0191da7a89138))
+* **idrac-webtop:** switch to KasmVNC variant for Apple Silicon ([#257](https://github.com/dryvist/orbstack-kubernetes/issues/257)) ([9c3ebbd](https://github.com/dryvist/orbstack-kubernetes/commit/9c3ebbdfd3ebe015e9d83922a2f5155c9564e26c))
+
 ## [1.12.7](https://github.com/JacobPEvans/orbstack-kubernetes/compare/v1.12.6...v1.12.7) (2026-05-25)
 
 
