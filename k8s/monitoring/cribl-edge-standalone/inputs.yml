@@ -1,0 +1,17 @@
+inputs:
+  in_bifrost_pod_logs:
+    type: file
+    disabled: false
+    mode: manual
+    filenames:
+      - /var/log/pods/monitoring_bifrost-*/**/*.log
+    # Index/sourcetype stamped at the source; the homelab Stream passes
+    # events straight through to Splunk.
+    metadata:
+      - name: index
+        value: "'llm'"
+      - name: sourcetype
+        value: "'bifrost'"
+    sendToRoutes: false
+    connections:
+      - output: proxmox-stream
