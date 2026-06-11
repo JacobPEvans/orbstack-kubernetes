@@ -15,3 +15,4 @@ configMapGenerator:
     files:
       - outputs.yml=outputs.yml
       - limits.yml=limits.yml
+      - inputs.yml=inputs.yml

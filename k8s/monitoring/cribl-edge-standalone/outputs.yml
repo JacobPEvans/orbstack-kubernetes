@@ -13,6 +13,16 @@ outputs:
     pqEnabled: true
     pqMaxSize: "2GB"
     pqPath: /opt/cribl/data/pq
+  proxmox-stream:
+    # Cribl TCP (S2S) to the homelab HAProxy-fronted Cribl Stream workers.
+    # PLACEHOLDER_CRIBL_S2S_HOST is replaced at container start from the
+    # CRIBL_S2S_HOST env var (see statefulset CRIBL_BEFORE_START_CMD).
+    type: cribl_tcp
+    host: PLACEHOLDER_CRIBL_S2S_HOST
+    port: 10300
+    pqEnabled: true
+    pqMaxSize: "1GB"
+    pqPath: /opt/cribl/data/pq-proxmox
   default:
     type: default
     defaultId: stream-hec

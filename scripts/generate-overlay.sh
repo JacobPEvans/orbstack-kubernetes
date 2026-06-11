@@ -136,6 +136,10 @@ spec:
           hostPath:
             path: ${HOME_DIR}/.vscode
             type: DirectoryOrCreate
+        - name: pod-logs
+          hostPath:
+            path: /var/log/pods
+            type: Directory
         - name: cribl-config-templates
           configMap:
             name: cribl-edge-standalone-config
