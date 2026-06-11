@@ -181,6 +181,25 @@ else
 fi
 echo ""
 
+# Step 2.4: CoreDNS internal-zone forward.
+# OrbStack pods otherwise resolve internal hostnames via the laptop's upstream resolver,
+# which can serve a stale/split-horizon view; forward the internal zone straight to the
+# internal DNS server for authoritative resolution. Zone + server come from Doppler
+# (PROXMOX_SUBDOMAIN, NETWORK_CIDR_DNS) — never committed literally.
+echo "--- Step 2.4: Applying CoreDNS internal-zone forward ---"
+if [ -n "${PROXMOX_SUBDOMAIN:-}" ] && [ -n "${NETWORK_CIDR_DNS:-}" ]; then
+  IFS=./ read -r _dns_o1 _dns_o2 _dns_o3 _ <<< "$NETWORK_CIDR_DNS"
+  INTERNAL_DNS_SERVER="${_dns_o1}.${_dns_o2}.${_dns_o3}.2"
+  sed -e "s|__INTERNAL_DNS_ZONE__|${PROXMOX_SUBDOMAIN}|g" \
+      -e "s|__INTERNAL_DNS_SERVER__|${INTERNAL_DNS_SERVER}|g" \
+      "$REPO_ROOT/k8s/coredns/coredns-custom.yaml" \
+    | kubectl --context "$CONTEXT" apply -f -
+  echo "  Applied: coredns-custom (internal-zone DNS forward; CoreDNS reload picks it up)"
+else
+  echo "  SKIPPED: coredns-custom (PROXMOX_SUBDOMAIN or NETWORK_CIDR_DNS not set)"
+fi
+echo ""
+
 # Step 2.5: Apply Doppler operator resources (CRDs not in kustomize base)
 echo "--- Step 2.5: Applying Doppler operator resources ---"
 if kubectl --context "$CONTEXT" api-resources --api-group=secrets.doppler.com 2>/dev/null | grep -q DopplerSecret; then
