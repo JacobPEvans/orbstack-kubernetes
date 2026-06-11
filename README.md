@@ -15,6 +15,10 @@ Kubernetes monitoring stack for local OrbStack cluster. Collects, processes, and
 | Cribl MCP Server | Cribl Cloud MCP API server for Claude Code | 30030 (NodePort) |
 | AI Jobs | Ephemeral Claude Code / Gemini CLI containers | N/A |
 
+> **Fleet policy**: Cribl Cloud fleets are reserved for Linux machines
+> (VMs/containers/servers). The managed Edge in this cluster qualifies
+> (Linux containers); macOS hosts run standalone, GitOps-managed Edge nodes.
+
 ## Quick Start
 
 From a clone of this repo (any local path):
