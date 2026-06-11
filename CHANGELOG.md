@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.12.9](https://github.com/dryvist/orbstack-kubernetes/compare/v1.12.8...v1.12.9) (2026-06-11)
+
+
+### Bug Fixes
+
+* **dns:** durable coredns internal-zone forward ([#267](https://github.com/dryvist/orbstack-kubernetes/issues/267)) ([f63df79](https://github.com/dryvist/orbstack-kubernetes/commit/f63df79839a6c3b44c47e762f53e657cdf2b9a25))
+
 ## [1.12.8](https://github.com/dryvist/orbstack-kubernetes/compare/v1.12.7...v1.12.8) (2026-06-01)
 
 
