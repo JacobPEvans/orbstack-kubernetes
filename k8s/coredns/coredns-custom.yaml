@@ -1,0 +1,23 @@
+# CoreDNS custom server block: forward the homelab internal DNS zone to the internal
+# DNS server so OrbStack pods resolve internal hostnames authoritatively, instead of via
+# the laptop's upstream resolver (which can serve a stale / split-horizon view).
+#
+# CoreDNS imports kube-system/coredns-custom keys matching *.server and reloads them
+# automatically (the cluster Corefile has `reload 15s`), so no CoreDNS restart needed.
+#
+# The zone and DNS-server address are SENSITIVE and must never be committed literally
+# (public repo). scripts/deploy.sh substitutes the placeholders from Doppler at deploy
+# time: __INTERNAL_DNS_ZONE__ <- PROXMOX_SUBDOMAIN, __INTERNAL_DNS_SERVER__ <- the .2
+# host of NETWORK_CIDR_DNS.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: coredns-custom
+  namespace: kube-system
+data:
+  internal-zone.server: |
+    __INTERNAL_DNS_ZONE__:53 {
+        errors
+        cache 30
+        forward . __INTERNAL_DNS_SERVER__
+    }
