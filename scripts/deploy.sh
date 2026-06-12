@@ -47,6 +47,19 @@ else
   echo "  SKIPPED: cribl-edge-admin (CRIBL_EDGE_PASSWORD not set, using default)"
 fi
 
+# Homelab Cribl S2S endpoint (HAProxy FQDN — single-label names don't resolve
+# in-cluster). Persisted as a secret so a plain `make deploy` without the SOPS
+# env keeps the previously seeded endpoint instead of regressing.
+if [ -n "${CRIBL_S2S_HOST:-}" ]; then
+  kubectl --context "$CONTEXT" create secret generic cribl-s2s-config \
+    --namespace "$NAMESPACE" \
+    --from-literal=host="$CRIBL_S2S_HOST" \
+    --dry-run=client -o yaml | kubectl --context "$CONTEXT" apply -f -
+  echo "  Created: cribl-s2s-config"
+else
+  echo "  SKIPPED: cribl-s2s-config (CRIBL_S2S_HOST not set; existing secret kept)"
+fi
+
 # Splunk HEC config (standalone edge)
 # Derive HEC URL from SPLUNK_NETWORK terraform output (JSON array, e.g. '["192.168.0.200"]')
 SPLUNK_HEC_URL=""
