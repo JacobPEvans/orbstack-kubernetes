@@ -220,9 +220,7 @@ class TestOtelEdgePath:
         throws at init, and Cribl skips the WHOLE pipeline: no index/sourcetype
         stamping, no PII masking (silently broken since #207).
         """
-        pipeline = yaml.safe_load(
-            (EDGE_STANDALONE_DIR / "pipelines-force-splunk-meta.yml").read_text()
-        )
+        pipeline = yaml.safe_load((EDGE_STANDALONE_DIR / "pipelines-force-splunk-meta.yml").read_text())
         mask = next(f for f in pipeline["functions"] if f["id"] == "mask")
         for rule in mask["conf"]["rules"]:
             assert "matchRegex" in rule and "replaceExpr" in rule, (
