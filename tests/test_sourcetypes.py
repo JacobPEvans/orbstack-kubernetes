@@ -388,8 +388,8 @@ class TestSourcetypeSentinels:
         )
         assert results, (
             f"Sentinel '{sentinel_id}' not found in Splunk with sourcetype={SOURCETYPE_PLANS} within 90s. "
-            "Check that the Edge FileMonitor is configured to monitor ~/.claude/plans/ "
-            "with a *.md file pattern and that the force-splunk-meta Edge pipeline assigns sourcetype=claude:code:plans."
+            "Check that the Edge FileMonitor is configured to monitor ~/.claude/plans/ with a *.md "
+            "file pattern and that the force-splunk-meta Edge pipeline assigns sourcetype=claude:code:plans."
         )
 
     def test_tasks_sourcetype(self, sentinel_tasks, splunk_client):
