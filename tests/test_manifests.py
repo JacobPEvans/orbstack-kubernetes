@@ -213,6 +213,30 @@ class TestOtelEdgePath:
             "squats 127.0.0.1:4317 in-pod, and headless services cannot remap ports"
         )
 
+    def test_default_route_runs_force_splunk_meta(self):
+        """The Edge's default route must run force-splunk-meta as its ROUTE pipeline.
+
+        Destination post-processing alone is not enough: Cribl Edge does not
+        apply it to route-delivered (pack) events — they reached Splunk
+        unstamped (index=main, sourcetype=httpevent) while direct-connection
+        events were stamped. Route pipelines always run for routed events.
+        """
+        routes = yaml.safe_load((EDGE_STANDALONE_DIR / "routes.yml").read_text())["routes"]
+        default = next(r for r in routes if r["id"] == "default")
+        assert default["pipeline"] == "force-splunk-meta", (
+            "default route must run force-splunk-meta so pack events get index/sourcetype + PII masking"
+        )
+        assert default["output"] == "default" and default["final"] is True
+
+    def test_routes_yml_is_copied_at_container_start(self):
+        """CRIBL_BEFORE_START_CMD_1 must install routes.yml, and the configmap must carry it."""
+        statefulset_text = (EDGE_STANDALONE_DIR / "statefulset.yaml").read_text()
+        assert "routes.yml" in statefulset_text, (
+            "statefulset CRIBL_BEFORE_START_CMD_1 must copy routes.yml into local/edge/"
+        )
+        kustomization_text = (EDGE_STANDALONE_DIR / "kustomization.yaml").read_text()
+        assert "routes.yml=routes.yml" in kustomization_text, "kustomization configMapGenerator must include routes.yml"
+
     def test_force_splunk_meta_mask_uses_valid_cribl_schema(self):
         """Mask rules must use matchRegex/replaceExpr — Cribl's actual schema.
 

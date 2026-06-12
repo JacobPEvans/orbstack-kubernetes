@@ -17,4 +17,5 @@ configMapGenerator:
       - outputs.yml=outputs.yml
       - limits.yml=limits.yml
       - inputs.yml=inputs.yml
+      - routes.yml=routes.yml
       - pipelines-force-splunk-meta.yml=pipelines-force-splunk-meta.yml

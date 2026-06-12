@@ -81,6 +81,8 @@ spec:
                 ${CRIBL_VOLUME_DIR}/local/edge/outputs.yml &&
                 sed -i "s/PLACEHOLDER_CRIBL_S2S_HOST/${CRIBL_S2S_HOST}/"
                 ${CRIBL_VOLUME_DIR}/local/edge/outputs.yml &&
+                cp /var/tmp/cribl-config/routes.yml
+                ${CRIBL_VOLUME_DIR}/local/edge/routes.yml &&
                 cp /var/tmp/cribl-config/limits.yml
                 ${CRIBL_VOLUME_DIR}/local/edge/limits.yml &&
                 mkdir -p ${CRIBL_VOLUME_DIR}/local/edge/pipelines/force-splunk-meta &&
