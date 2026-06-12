@@ -1,5 +1,17 @@
 # Changelog
 
+## [2.0.0](https://github.com/dryvist/orbstack-kubernetes/compare/v1.12.9...v2.0.0) (2026-06-12)
+
+
+### ⚠ BREAKING CHANGES
+
+* **monitoring:** offload Cribl Stream to the homelab — laptop runs Edge + OTEL only ([#272](https://github.com/dryvist/orbstack-kubernetes/issues/272))
+
+### Features
+
+* **cribl-edge:** ship bifrost pod logs to the homelab Stream (index=llm) ([#269](https://github.com/dryvist/orbstack-kubernetes/issues/269)) ([7c3c247](https://github.com/dryvist/orbstack-kubernetes/commit/7c3c2476c9a6709514c2d1a960eb25a34d596657))
+* **monitoring:** offload Cribl Stream to the homelab — laptop runs Edge + OTEL only ([#272](https://github.com/dryvist/orbstack-kubernetes/issues/272)) ([bf8f4f8](https://github.com/dryvist/orbstack-kubernetes/commit/bf8f4f895e03a06e395245b03eb57a5ac731b971))
+
 ## [1.12.9](https://github.com/dryvist/orbstack-kubernetes/compare/v1.12.8...v1.12.9) (2026-06-11)
 
 
