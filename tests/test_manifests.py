@@ -213,6 +213,23 @@ class TestOtelEdgePath:
             "squats 127.0.0.1:4317 in-pod, and headless services cannot remap ports"
         )
 
+    def test_force_splunk_meta_mask_uses_valid_cribl_schema(self):
+        """Mask rules must use matchRegex/replaceExpr — Cribl's actual schema.
+
+        The legacy regex/replacement keys load as undefined, the mask function
+        throws at init, and Cribl skips the WHOLE pipeline: no index/sourcetype
+        stamping, no PII masking (silently broken since #207).
+        """
+        pipeline = yaml.safe_load(
+            (EDGE_STANDALONE_DIR / "pipelines-force-splunk-meta.yml").read_text()
+        )
+        mask = next(f for f in pipeline["functions"] if f["id"] == "mask")
+        for rule in mask["conf"]["rules"]:
+            assert "matchRegex" in rule and "replaceExpr" in rule, (
+                f"Mask rule {rule} must use matchRegex/replaceExpr (Cribl schema); "
+                "regex/replacement keys fail function init and disable the whole pipeline"
+            )
+
     def test_edge_in_otel_listens_on_unconflicted_port(self):
         """in_otel must listen on 14317 — 4317 collides with the gemini pack's loopback input."""
         inputs = yaml.safe_load((EDGE_STANDALONE_DIR / "inputs.yml").read_text())
