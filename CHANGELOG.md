@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.0.1](https://github.com/dryvist/orbstack-kubernetes/compare/v2.0.0...v2.0.1) (2026-06-12)
+
+
+### Bug Fixes
+
+* **cribl-edge:** proxmox-stream output must be tcpjson — receiver is single-instance ([#275](https://github.com/dryvist/orbstack-kubernetes/issues/275)) ([2c52ee8](https://github.com/dryvist/orbstack-kubernetes/commit/2c52ee89a0b947e9c1043c6067af310e6da66521))
+
 ## [2.0.0](https://github.com/dryvist/orbstack-kubernetes/compare/v1.12.9...v2.0.0) (2026-06-12)
 
 
