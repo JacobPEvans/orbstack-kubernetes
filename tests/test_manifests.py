@@ -81,7 +81,10 @@ class TestArchitectureInvariant:
         outputs = yaml.safe_load((EDGE_STANDALONE_DIR / "outputs.yml").read_text())["outputs"]
 
         proxmox_stream = outputs["proxmox-stream"]
-        assert proxmox_stream["type"] == "cribl_tcp", "proxmox-stream output must be Cribl S2S (cribl_tcp)"
+        assert proxmox_stream["type"] == "tcpjson", (
+            "proxmox-stream output must be tcpjson — the homelab Stream is single-instance, "
+            "where Cribl only permits the TCP JSON source (cribl_tcp is distributed-only)"
+        )
         assert proxmox_stream["host"] == "PLACEHOLDER_CRIBL_S2S_HOST", (
             "proxmox-stream host must be the PLACEHOLDER_CRIBL_S2S_HOST placeholder "
             "(substituted from CRIBL_S2S_HOST at container start) — never a real host"

@@ -1,10 +1,13 @@
 outputs:
   proxmox-stream:
-    # Cribl TCP (S2S) to the homelab HAProxy-fronted Cribl Stream workers.
+    # TCP JSON (S2S) to the homelab HAProxy-fronted Cribl Stream workers.
+    # tcpjson, not cribl_tcp: the receiving Stream is single-instance, where
+    # Cribl only permits the TCP JSON source ("Source is not allowed in this
+    # deployment" otherwise) — the homelab input is tcpjson on the same port.
     # PLACEHOLDER_CRIBL_S2S_HOST is replaced at container start from the
     # CRIBL_S2S_HOST env var (see statefulset CRIBL_BEFORE_START_CMD).
     # The sole egress path for ALL Edge telemetry — the laptop runs no Stream.
-    type: cribl_tcp
+    type: tcpjson
     host: PLACEHOLDER_CRIBL_S2S_HOST
     port: 10300
     # Output-conditioning pipeline: stamps Splunk index/sourcetype (from
