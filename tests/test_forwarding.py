@@ -2,9 +2,9 @@
 
 These tests verify data flows correctly through the pipeline:
   A2: Host Filesystem → Cribl Edge Standalone (file monitor)
-  A4: OTEL Collector → Cribl Stream Standalone (gRPC :4317)
-  A5: Cribl Edge Standalone → Cribl Stream Standalone (HEC :8088)
-  A7: Cribl Stream Standalone → Splunk HEC (:8088 HEC)
+  A4: OTEL Collector → Cribl Edge Standalone (gRPC :4317)
+  A5: Cribl Edge Standalone → homelab Cribl Stream (S2S :10300)
+  A7: homelab Cribl Stream → Splunk HEC (passthrough; verified via Splunk queries)
 """
 
 import errno
@@ -18,13 +18,9 @@ from pathlib import Path
 import pytest
 from conftest import (
     OTEL_GRPC_ENDPOINT,
-    PF_STREAM_INPUTS_A4,
-    PF_STREAM_INPUTS_A5,
-    PF_STREAM_OUTPUTS,
+    PF_EDGE_INPUTS,
     kubectl,
     kubectl_exec_no_fail,
-    kubectl_secret,
-    kubectl_secret_values,
     port_forward_get,
 )
 from helpers import (
@@ -32,7 +28,6 @@ from helpers import (
     parse_otel_error_lines,
     query_splunk,
     send_trace_with_retry,
-    url_present_in_outputs_yaml,
 )
 
 
@@ -48,8 +43,8 @@ def _send_trace(test_id: str, *, retries: int = 3) -> None:
 
 
 @pytest.mark.usefixtures("cluster_ready")
-class TestCollectorToStreamForwarding:
-    """Verify OTEL Collector forwards data to Cribl Stream Standalone (arrow A4)."""
+class TestCollectorToEdgeForwarding:
+    """Verify OTEL Collector forwards data to Cribl Edge Standalone (arrow A4)."""
 
     def test_no_export_errors_after_send(self):
         """After sending data, collector's own operational logs should not contain export errors.
@@ -76,157 +71,43 @@ class TestCollectorToStreamForwarding:
             otel_error_lines[:5]
         )
 
-    def test_cribl_stream_received_otlp_data(self):
-        """After sending a trace, Cribl Stream API should be reachable to verify input activity."""
+    def test_cribl_edge_received_otlp_data(self):
+        """After sending a trace, Cribl Edge API should be reachable to verify input activity."""
         _send_trace(str(uuid.uuid4()))
         time.sleep(5)
-        resp = port_forward_get("cribl-stream-standalone", 9000, PF_STREAM_INPUTS_A4, "/api/v1/system/inputs")
+        resp = port_forward_get("cribl-edge-standalone", 9420, PF_EDGE_INPUTS, "/api/v1/system/inputs")
         # 200 = API accessible, 401 = auth required (inputs endpoint exists)
-        assert resp.status_code in (200, 401), f"Cribl Stream inputs API returned unexpected status {resp.status_code}"
-
-
-@pytest.mark.usefixtures("cluster_ready")
-class TestEdgeToStreamForwarding:
-    """Verify Cribl Edge Standalone can reach Cribl Stream Standalone (arrow A5).
-
-    Cribl Stream exposes HTTP inputs on :10080 (the actual data path).
-    Port 9000 is the UI/API port, not the data forwarding path.
-    """
-
-    def test_edge_to_stream_connectivity(self):
-        """Cribl Edge Standalone should be able to reach Cribl Stream data port on :10080."""
-        output, returncode = kubectl_exec_no_fail(
-            "statefulset/cribl-edge-standalone",
-            "--",
-            "curl",
-            "-s",
-            "--max-time",
-            "5",
-            "-o",
-            "/dev/null",
-            "-w",
-            "%{http_code}",
-            "http://cribl-stream-standalone:10080/",
-        )
-        # Any HTTP response (even 4xx) means TCP connectivity is working.
-        # Exit code 7 (connection refused) also indicates NP allows traffic
-        # but the port may not be listening yet — still confirms network path.
-        if returncode == 7:
-            return  # Connection refused = NP allows traffic, port not listening
-        assert output.strip().isdigit() and int(output.strip()) > 0, (
-            f"Expected HTTP response from Cribl Stream data port, got: '{output}' (curl exit {returncode})"
-        )
-
-    def test_cribl_stream_inputs_api_reachable(self):
-        """Cribl Stream inputs API endpoint should be reachable after edge connectivity check."""
-        resp = port_forward_get("cribl-stream-standalone", 9000, PF_STREAM_INPUTS_A5, "/api/v1/system/inputs")
-        assert resp.status_code in (200, 401), f"Cribl Stream inputs API returned unexpected status {resp.status_code}"
+        assert resp.status_code in (200, 401), f"Cribl Edge inputs API returned unexpected status {resp.status_code}"
 
 
 @pytest.mark.usefixtures("cluster_ready", "pipeline_warm")
-class TestStreamToSplunkForwarding:
-    """Verify Cribl Stream Standalone forwards to Splunk HEC (arrow A7)."""
+class TestEdgeToHomelabForwarding:
+    """Verify Cribl Edge Standalone forwards to the homelab Cribl Stream (arrows A5 + A7).
 
-    def test_splunk_hec_output_healthy(self):
-        """Cribl Stream API should report the Splunk HEC output as configured."""
-        resp = port_forward_get("cribl-stream-standalone", 9000, PF_STREAM_OUTPUTS, "/api/v1/system/outputs")
-        # 200 = API accessible, 401 = auth required (output endpoint exists)
-        assert resp.status_code in (200, 401), f"Cribl Stream outputs API returned unexpected status {resp.status_code}"
+    The homelab Stream itself is not reachable from CI, so these tests verify
+    the Edge side of the S2S leg (proxmox-stream output health and outbound
+    bytes) plus end-to-end delivery by querying Splunk directly.
+    """
 
-    def test_splunk_hec_health_endpoint(self):
-        """Splunk HEC health endpoint should return HTTP 200 with 'HEC is healthy' from stream pod."""
-        hec_url = kubectl_secret("splunk-hec-config", "url")
-        health_url = hec_url.replace("/services/collector", "/services/collector/health")
-        output, returncode = kubectl_exec_no_fail(
-            "statefulset/cribl-stream-standalone",
-            "--",
-            "curl",
-            "-s",
-            "--max-time",
-            "30",
-            "-k",
-            "-w",
-            "\n%{http_code}",
-            health_url,
-        )
-        lines = output.splitlines()
-        assert lines, f"No output from Splunk HEC health endpoint (curl exit {returncode})"
-        status_code = lines[-1].strip()
-        body = "\n".join(lines[:-1])
-        assert status_code == "200", (
-            f"Expected HTTP 200 from Splunk HEC health endpoint, got {status_code} "
-            f"(curl exit {returncode}, body: '{body}')"
-        )
-        assert "HEC is healthy" in body, (
-            f"Expected 'HEC is healthy' in response body, got: '{body}' (curl exit {returncode}, status {status_code})"
-        )
-
-    def test_splunk_hec_token_accepted(self):
-        """Posting to Splunk HEC with the real token should return HTTP 200 with Success body."""
-        secrets = kubectl_secret_values("splunk-hec-config", ["token", "url"])
-        token, url = secrets["token"], secrets["url"]
-        output, returncode = kubectl_exec_no_fail(
-            "statefulset/cribl-stream-standalone",
-            "--",
-            "curl",
-            "-s",
-            "--max-time",
-            "30",
-            "-k",
-            "-w",
-            "\n%{http_code}",
-            "-H",
-            f"Authorization: Splunk {token}",
-            "-H",
-            "Content-Type: application/json",
-            "-d",
-            '{"event": "test", "sourcetype": "test"}',
-            url,
-        )
-        lines = output.splitlines()
-        assert lines, f"No output from Splunk HEC (curl exit {returncode})"
-        status_code = lines[-1].strip()
-        body = "\n".join(lines[:-1])
-        assert status_code == "200", (
-            f"Expected HTTP 200 from Splunk HEC with token, got {status_code} (curl exit {returncode}, body: '{body}')"
-        )
-        assert '"text":"Success"' in body or '"code":0' in body, (
-            f"Expected Success in HEC response body, got: '{body}' (curl exit {returncode}, status {status_code})"
-        )
-
-    def test_splunk_hec_url_matches_secret(self):
-        """URL in splunk-hec-config secret should match the URL in Cribl Stream's outputs config."""
-        secret_url = kubectl_secret("splunk-hec-config", "url")
-        output, returncode = kubectl_exec_no_fail(
-            "statefulset/cribl-stream-standalone",
-            "--",
-            "sh",
-            "-c",
-            "cat ${CRIBL_VOLUME_DIR}/local/cribl/outputs.yml",
-        )
-        assert url_present_in_outputs_yaml(secret_url, output), (
-            f"Secret URL '{secret_url}' not found as 'url:' value in Cribl Stream outputs.yml "
-            f"(cat exit {returncode}):\n{output[:300]}"
-        )
-
-    def test_cribl_stream_no_output_errors(self):
-        """Cribl Stream logs should contain no warn/error lines for the splunk-hec output."""
-        logs = kubectl("logs", "statefulset/cribl-stream-standalone", "--tail=100")
+    def test_cribl_edge_no_output_errors(self):
+        """Cribl Edge logs should contain no warn/error lines for the proxmox-stream output."""
+        logs = kubectl("logs", "statefulset/cribl-edge-standalone", "--tail=100")
         error_lines = [
             line
             for line in logs.splitlines()
-            if "output:splunk-hec" in line and ("level=warn" in line or "level=error" in line)
+            if "output:proxmox-stream" in line and ("level=warn" in line or "level=error" in line)
         ]
-        assert not error_lines, "Cribl Stream has output errors for splunk-hec:\n" + "\n".join(error_lines[:5])
+        assert not error_lines, "Cribl Edge has output errors for proxmox-stream:\n" + "\n".join(error_lines[:5])
 
     def test_otlp_events_reach_splunk_realtime(self, splunk_client):
         """Send OTLP trace and verify it appears in Splunk index=claude within 120s.
 
-        End-to-end verification that the OTLP → Stream → Splunk HEC path (A4 + A7) delivers
-        events to the correct Splunk index. Uses a unique trace ID as a sentinel to ensure
-        we're matching our specific test event, not background traffic.
+        End-to-end verification that the OTLP → Edge → homelab Stream → Splunk HEC
+        path (A4 + A5 + A7) delivers events to the correct Splunk index. Uses a unique
+        trace ID as a sentinel to ensure we're matching our specific test event, not
+        background traffic.
 
-        This test runs BEFORE test_cribl_stream_events_flowing to serve as a readiness
+        This test runs BEFORE test_cribl_edge_events_flowing to serve as a readiness
         gate: once data reaches Splunk, the pipeline is provably live and internal stats
         should be emitting.
         """
@@ -247,16 +128,17 @@ class TestStreamToSplunkForwarding:
             time.sleep(5)
         pytest.fail(
             f"Trace ID '{trace_id}' not found in Splunk index=claude within 120s. "
-            "The OTLP → Stream → Splunk HEC pipeline (A4 + A7) is not forwarding events to the correct index."
+            "The OTLP → Edge → homelab Stream → Splunk HEC pipeline (A4 + A5 + A7) "
+            "is not forwarding events to the correct index."
         )
 
-    def test_cribl_stream_events_flowing(self):
-        """Cribl Stream stats should show outBytes > 0 (data physically sent to Splunk HEC).
+    def test_cribl_edge_events_flowing(self):
+        """Cribl Edge stats should show outBytes > 0 (data physically sent to the homelab Stream).
 
         Checks _raw stats for outBytes > 0 (bytes actually sent to an external output),
-        not just outEvents (which counts pipeline-internal routing). Since splunk-hec is
-        the only non-default output and all routes lead there, outBytes > 0 confirms
-        data was physically sent to Splunk HEC.
+        not just outEvents (which counts pipeline-internal routing). Since proxmox-stream
+        is the default output and all connections lead there, outBytes > 0 confirms
+        data was physically sent over S2S to the homelab Stream.
 
         Runs AFTER test_otlp_events_reach_splunk_realtime which proves the pipeline is
         live and data has already flowed through. Stats are emitted every ~10s, so they
@@ -264,7 +146,7 @@ class TestStreamToSplunkForwarding:
         """
         deadline = time.time() + 60
         while time.time() < deadline:
-            logs = kubectl("logs", "statefulset/cribl-stream-standalone", "--tail=200")
+            logs = kubectl("logs", "statefulset/cribl-edge-standalone", "--tail=200")
             flowing = find_flowing_stats(logs)
             if flowing:
                 return
@@ -456,7 +338,7 @@ class TestGeminiLogPipeline:
     def test_file_events_reach_splunk_realtime(self, sentinel_gemini_file, splunk_client):
         """Write a .md sentinel and verify it reaches Splunk index=gemini within 90s.
 
-        End-to-end verification of the full pipeline: Host FS → Edge → Cribl Stream → Splunk (A2+A5+A7).
+        End-to-end verification of the full pipeline: Host FS → Edge → homelab Stream → Splunk (A2+A5+A7).
         Checks Splunk directly using the REST API instead of only checking Edge sentCount.
         The sentinel value is unique per test run so matches are unambiguous.
         """
@@ -476,7 +358,7 @@ class TestGeminiLogPipeline:
             time.sleep(10)
         pytest.fail(
             f"Sentinel value '{sentinel_value}' not found in Splunk index=gemini within 90s. "
-            "The Host FS → Edge → Cribl Stream → Splunk pipeline (A2+A5+A7) did not deliver the event."
+            "The Host FS → Edge → homelab Stream → Splunk pipeline (A2+A5+A7) did not deliver the event."
         )
 
 
@@ -561,7 +443,7 @@ class TestClaudeCodeLogPipeline:
         )
 
     def test_edge_output_not_devnull(self):
-        """Edge 'default' output must NOT resolve to devnull — it must route to Splunk HEC.
+        """Edge 'default' output must NOT resolve to devnull — it must route to the homelab Stream.
 
         Directly catches the failure mode where CRIBL_VOLUME_DIR is unset and the runtime
         ignores config written to /opt/cribl/local/, leaving only the built-in devnull output.
@@ -578,8 +460,8 @@ class TestClaudeCodeLogPipeline:
             "curl -sf http://127.0.0.1:9420/api/v1/system/outputs "
             '-H "Authorization: Bearer $AUTH" 2>/dev/null',
         )
-        assert '"stream-hec"' in output, (
-            f"Edge outputs API does not include stream-hec output — all events route to devnull. "
+        assert '"proxmox-stream"' in output, (
+            f"Edge outputs API does not include proxmox-stream output — all events route to devnull. "
             f"API response: {output[:300]}"
         )
 
@@ -605,7 +487,7 @@ class TestClaudeCodeLogPipeline:
     def test_file_events_reach_splunk_realtime(self, sentinel_claude_file, splunk_client):
         """Write a .jsonl sentinel and verify it reaches Splunk index=claude within 90s.
 
-        End-to-end verification of the full pipeline: Host FS → Edge → Cribl Stream → Splunk (A2+A5+A7).
+        End-to-end verification of the full pipeline: Host FS → Edge → homelab Stream → Splunk (A2+A5+A7).
         Checks Splunk directly using the REST API instead of only checking Edge sentCount.
         The sentinel value is unique per test run so matches are unambiguous.
         """
@@ -625,5 +507,5 @@ class TestClaudeCodeLogPipeline:
             time.sleep(10)
         pytest.fail(
             f"Sentinel value '{sentinel_value}' not found in Splunk index=claude within 90s. "
-            "The Host FS → Edge → Cribl Stream → Splunk pipeline (A2+A5+A7) did not deliver the event."
+            "The Host FS → Edge → homelab Stream → Splunk pipeline (A2+A5+A7) did not deliver the event."
         )

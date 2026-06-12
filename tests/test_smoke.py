@@ -14,7 +14,6 @@ from conftest import (
     MCP_NODEPORT_URL,
     PF_EDGE_HEALTH,
     PF_OTEL_HEALTH,
-    PF_STREAM_HEALTH,
     STATEFULSETS,
     kubectl_json,
     port_forward_get,
@@ -35,9 +34,7 @@ EXPECTED_NETWORK_POLICIES = [
     "allow-edge-managed-egress",
     "allow-edge-standalone-egress",
     "allow-edge-standalone-ui-ingress",
-    "allow-stream-ingress",
-    "allow-stream-egress",
-    "allow-stream-ui-ingress",
+    "allow-edge-standalone-data-ingress",
     "allow-mcp-egress",
     "allow-mcp-ingress",
     "allow-bifrost-egress",
@@ -93,11 +90,11 @@ class TestServiceEndpoints:
         ports = [p["port"] for p in data["spec"]["ports"]]
         assert 9420 in ports
 
-    def test_cribl_stream_standalone_ui_service(self):
-        """Cribl Stream Standalone dedicated NodePort service should expose UI on :30900."""
-        data = kubectl_json("get", "service", "cribl-stream-standalone-ui")
+    def test_cribl_edge_standalone_hec_service(self):
+        """Cribl Edge Standalone dedicated NodePort service should expose HEC on :30088."""
+        data = kubectl_json("get", "service", "cribl-edge-standalone-hec")
         port_map = {p["name"]: p.get("nodePort") for p in data["spec"]["ports"]}
-        assert 30900 in port_map.values(), f"Expected NodePort 30900 for Cribl Stream UI, got: {port_map}"
+        assert 30088 in port_map.values(), f"Expected NodePort 30088 for Cribl Edge HEC, got: {port_map}"
 
     def test_cribl_edge_standalone_ui_service(self):
         """Cribl Edge Standalone dedicated NodePort service should expose UI on :30910."""
@@ -126,14 +123,6 @@ class TestOtelCollectorHealth:
 
 @pytest.mark.usefixtures("cluster_ready")
 class TestCriblHealth:
-    def test_cribl_stream_standalone_health(self):
-        """Cribl Stream Standalone /api/v1/health should return 200 via port-forward.
-
-        Cribl Stream API is on port 9000 (not 9420 which is only used by Cribl Edge).
-        """
-        resp = port_forward_get("cribl-stream-standalone", 9000, PF_STREAM_HEALTH, path="/api/v1/health")
-        assert resp.status_code == 200, f"Cribl Stream health returned {resp.status_code}: {resp.text[:200]}"
-
     def test_cribl_edge_standalone_health(self):
         """Cribl Edge Standalone /api/v1/health should return 200 via port-forward."""
         resp = port_forward_get("cribl-edge-standalone", 9420, PF_EDGE_HEALTH, path="/api/v1/health")

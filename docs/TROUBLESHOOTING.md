@@ -18,7 +18,7 @@ kubectl -n monitoring logs <pod-name> --previous
 
 Common causes:
 
-- Missing secrets (cribl-cloud-config, cribl-stream-admin)
+- Missing secrets (cribl-cloud-config)
 - Invalid Cribl Cloud URL format
 - Port conflicts with other services
 
@@ -94,7 +94,7 @@ If NodePort services fail to bind:
 
 ```bash
 # Check what's using the ports
-lsof -i :30317 -i :30318 -i :30900 -i :30910
+lsof -i :30317 -i :30318 -i :30088 -i :30910
 ```
 
 ## Reset Everything

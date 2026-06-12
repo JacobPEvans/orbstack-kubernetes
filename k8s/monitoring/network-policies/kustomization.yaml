@@ -9,9 +9,7 @@ resources:
   - allow-edge-managed-egress.yaml
   - allow-edge-standalone-egress.yaml
   - allow-edge-standalone-ui-ingress.yaml
-  - allow-stream-ingress.yaml
-  - allow-stream-egress.yaml
-  - allow-stream-ui-ingress.yaml
+  - allow-edge-standalone-data-ingress.yaml
   - allow-mcp-egress.yaml
   - allow-mcp-ingress.yaml
   - allow-bifrost-egress.yaml

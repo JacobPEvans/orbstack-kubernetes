@@ -4,7 +4,7 @@ CONTEXT ?= orbstack
 NAMESPACE := monitoring
 GITHUB_REPO ?= JacobPEvans/orbstack-kubernetes
 KUSTOMIZE_DIRS := k8s/monitoring
-MONITORING_STATEFULSETS := otel-collector cribl-edge-managed cribl-edge-standalone cribl-stream-standalone cribl-mcp-server bifrost
+MONITORING_STATEFULSETS := otel-collector cribl-edge-managed cribl-edge-standalone cribl-mcp-server bifrost
 
 # Virtual environment configuration
 VENV ?= .venv

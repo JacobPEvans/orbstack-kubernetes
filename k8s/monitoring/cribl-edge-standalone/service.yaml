@@ -19,3 +19,11 @@ spec:
       port: 9000
       targetPort: 9000
       protocol: TCP
+    - name: otlp-grpc
+      port: 4317
+      targetPort: 4317
+      protocol: TCP
+    - name: hec
+      port: 8088
+      targetPort: 8088
+      protocol: TCP

@@ -83,28 +83,24 @@ Sends a trace via gRPC and HTTP, asserts no transport errors.
 
 The main integration test suite. Three test classes:
 
-**`TestCollectorToStreamForwarding`** — OTEL Collector → Cribl Stream (A4)
+**`TestCollectorToEdgeForwarding`** — OTEL Collector → Cribl Edge (A4)
 
 - Verifies no OTEL exporter errors after sending a trace
-- Verifies Stream's OTLP input metrics show received events
+- Verifies the Edge API is reachable after a send
 
-**`TestStreamToSplunkForwarding`** — Cribl Stream → Splunk HEC (A7)
+**`TestEdgeToHomelabForwarding`** — Cribl Edge → homelab Stream → Splunk HEC (A5+A7)
 
-- `test_splunk_hec_output_healthy`: Cribl's output health API shows Green
-- `test_splunk_hec_health_endpoint`: Splunk HEC health URL returns 200
-- `test_splunk_hec_token_accepted`: POST to Splunk HEC with real token returns 200
-- `test_splunk_hec_url_matches_secret`: Runtime config matches the Kubernetes secret
-- `test_cribl_stream_no_output_errors`: Stream logs show no non-retryable output errors
-- `test_cribl_stream_events_flowing`: Stream shows `outBytes > 0` in stats logs
-- `test_otlp_events_reach_splunk_realtime` ✓Splunk: Sends OTLP trace with unique ID, **queries Splunk** for `index=claude` within 60s
+- `test_cribl_edge_no_output_errors`: Edge logs show no non-retryable errors for the proxmox-stream output
+- `test_cribl_edge_events_flowing`: Edge shows `outBytes > 0` in stats logs (bytes sent over S2S)
+- `test_otlp_events_reach_splunk_realtime` ✓Splunk: Sends OTLP trace with unique ID, **queries Splunk** for `index=claude` within 120s
 
-**`TestClaudeCodeLogPipeline`** — Host FS → Edge → Stream → Splunk (A2+A5+A7)
+**`TestClaudeCodeLogPipeline`** — Host FS → Edge → homelab Stream → Splunk (A2+A5+A7)
 
 - `test_claude_home_mount_accessible`: Edge pod can read `~/.claude/projects/`
 - `test_sentinel_file_visible_in_edge_pod`: Host file appears in pod immediately
 - `test_edge_file_monitor_config_path`: Pack input config has correct monitoring path
 - `test_edge_file_monitor_picks_up_sentinel`: Edge FileMonitor logs "collector added" within 35s
-- `test_edge_output_not_devnull`: Edge's default output routes to stream-hec (not devnull)
+- `test_edge_output_not_devnull`: Edge's default output routes to proxmox-stream (not devnull)
 - `test_edge_file_input_active`: Edge FileMonitor is actively collecting files
 - `test_file_events_reach_splunk_realtime` ✓Splunk: Writes sentinel `.jsonl`, **queries Splunk** for `index=claude sourcetype=claude:code:session` within 90s
 
@@ -116,15 +112,13 @@ Pure logic tests (no cluster needed):
 
 - `test_parse_otel_error_lines`: Validates OTEL log parser
 - `test_find_flowing_stats`: Validates Cribl stats parser
-- `test_url_present_in_outputs_yaml`: Validates YAML URL matcher
 
 ### `tests/helpers.py`
 
 Shared utility functions:
 
 - `parse_otel_error_lines(log_text)`: Filters OTEL collector logs for error-level operational entries
-- `find_flowing_stats(log_text)`: Finds Cribl Stream logs where `outBytes > 0`
-- `url_present_in_outputs_yaml(url, yaml_text)`: Checks Splunk URL in Cribl output YAML
+- `find_flowing_stats(log_text)`: Finds Cribl logs where `outBytes > 0`
 - `query_splunk(mgmt_url, admin_password, search, earliest)`: Queries Splunk REST API, returns list of result dicts
 
 ### `tests/conftest.py`
@@ -167,16 +161,16 @@ Check each pipeline leg:
 
 1. **Edge mount**: `kubectl exec -n monitoring cribl-edge-standalone-0 -- ls /home/claude/.claude/projects/`
 2. **Edge FileMonitor**: `kubectl logs -n monitoring cribl-edge-standalone-0 --since=5m | grep FileMonitor`
-3. **Edge→Stream sent**: Check Edge outputs API `sentCount` for `stream-hec`
-4. **Stream→Splunk errors**: `kubectl logs -n monitoring cribl-stream-standalone-0 --since=5m | grep "400\|error"`
-5. **Splunk HEC config**: `kubectl exec -n monitoring cribl-stream-standalone-0 -- cat /opt/cribl/data/local/cribl/outputs.yml`
+3. **Edge→homelab sent**: Check Edge outputs API `sentCount` for `proxmox-stream`
+4. **Edge output errors**: `kubectl logs -n monitoring cribl-edge-standalone-0 --since=5m | grep "output:proxmox-stream" | grep "level=warn\|level=error"`
+5. **Edge S2S config**: `kubectl exec -n monitoring cribl-edge-standalone-0 -- cat /opt/cribl/data/local/cribl/outputs.yml` (the homelab side is owned by its own repo)
 
 ### Tests pass but data goes to wrong Splunk index
 
-The `force-splunk-meta` pipeline must set `index` (no underscore) — NOT `_index`. If events appear with `sourcetype=httpevent` or `index=default`, the pipeline is not running or has wrong field names. Check:
+The `force-splunk-meta` pipeline (attached to the Edge's proxmox-stream output) must set `index` (no underscore) — NOT `_index`. If events appear with `sourcetype=httpevent` or `index=default`, the pipeline is not running or has wrong field names. Check:
 
 ```bash
-kubectl exec -n monitoring cribl-stream-standalone-0 -- \
+kubectl exec -n monitoring cribl-edge-standalone-0 -- \
   cat /opt/cribl/data/local/cribl/pipelines/force-splunk-meta/conf.yml
 ```
 
@@ -184,9 +178,9 @@ kubectl exec -n monitoring cribl-stream-standalone-0 -- \
 
 - **A3 (Host FS → Edge Managed)**: Not verified by forwarding tests; only pod health is checked
 - **A6 (Edge Managed → Cribl Cloud)**: Not locally testable (cloud-managed)
+- **A7 (homelab Stream → Splunk HEC)**: The homelab Stream is not reachable from CI; covered indirectly by the ✓Splunk E2E tests
 - **A9 (MCP Server → Cribl Cloud)**: Not locally testable
-- **A10 (Stream → GitHub REST API)**: Copilot REST metrics require a valid PAT + org; not locally testable
 - **VS Code sourcetypes**: Covered by pack install validation (unit tests check cc-edge-vscode-io forbidden patterns); E2E sourcetype sentinels planned for future PR
-- **Copilot sourcetypes** (`copilot:chat:otel`, `github:copilot:usage`): Routing rules validated by Stream pipeline config; E2E tests require active Copilot data sources
+- **Copilot sourcetypes** (`copilot:chat:otel`): Routing rules validated by the force-splunk-meta pipeline config; E2E tests require active Copilot data sources
 
 See [ARCHITECTURE.md](ARCHITECTURE.md) for the full test coverage map.

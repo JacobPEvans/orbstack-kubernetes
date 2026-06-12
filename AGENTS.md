@@ -4,11 +4,12 @@ Kubernetes manifests for local OrbStack cluster.
 
 ## Architecture Invariant
 
-**Edge → Stream → Splunk is the ONLY allowed data path.**
+**Edge → homelab Stream → Splunk is the ONLY allowed data path.**
 
-- `cribl-edge-standalone` sends ONLY to `cribl-stream-standalone` (HEC port 8088). It MUST NOT talk directly to Splunk.
-- `cribl-stream-standalone` is the ONLY component with Splunk egress.
-- Network policies enforce this: edge egress is locked to stream:8088 only.
+- The laptop runs NO Cribl Stream. `cribl-edge-standalone` is the only local Cribl and sends ONLY via Cribl S2S (port 10300) to the homelab HAProxy-fronted Cribl Stream (host from `CRIBL_S2S_HOST`, never committed). It MUST NOT talk directly to Splunk.
+- Index/sourcetype stamping and PII masking happen at the Edge output (`force-splunk-meta` pipeline); the homelab Stream's S2S input is a passthrough by contract.
+- `cribl-edge-managed` is unchanged: cloud-managed by Cribl Cloud, which ships directly to Splunk.
+- Network policies enforce this: edge egress is locked to :10300 (plus :443 for pack downloads) only.
 
 ## Key Rules
 
@@ -51,17 +52,16 @@ a full deploy + E2E test run that blocks merge on failure.
 See [Architecture Diagram](docs/ARCHITECTURE.md) for the full data flow and test coverage map.
 
 Four CronJobs ping [healthchecks.io](https://healthchecks.io) every 5 minutes as dead-man's switches:
-`pipeline-heartbeat` (Stream), `heartbeat-splunk`, `heartbeat-edge`, `heartbeat-otel`.
+`pipeline-heartbeat` (Edge health), `heartbeat-splunk`, `heartbeat-edge`, `heartbeat-otel`.
 Ping URLs stored in SOPS (`HEALTHCHECKS_*_URL` keys), injected as `heartbeat-config` secret by `deploy.sh`.
 
-Six StatefulSets in the monitoring namespace:
+Five StatefulSets in the monitoring namespace:
 
 | StatefulSet | Role | UI |
 |------------|------|-----|
-| `otel-collector` | OTLP receiver, forwards to Cribl Stream Standalone | None |
+| `otel-collector` | OTLP receiver, forwards to Cribl Edge Standalone | None |
 | `cribl-edge-managed` | Cloud-managed edge, forwards to Cribl Cloud | None |
-| `cribl-edge-standalone` | Local edge with 3 packs ([claude-code-otel](https://github.com/JacobPEvans/cc-edge-claude-code-otel), [gemini-antigravity-io](https://github.com/JacobPEvans/cc-edge-gemini-antigravity-io), [vscode-io](https://github.com/JacobPEvans/cc-edge-vscode-io)), forwards to Cribl Stream Standalone | :30910 |
-| `cribl-stream-standalone` | Local Stream leader with UI, [Copilot REST collector](https://github.com/JacobPEvans/cc-stream-github-copilot-rest-io) pack, outputs to Splunk HEC | :30900 |
+| `cribl-edge-standalone` | Local edge with 3 packs ([claude-code-otel](https://github.com/JacobPEvans/cc-edge-claude-code-otel), [gemini-antigravity-io](https://github.com/JacobPEvans/cc-edge-gemini-antigravity-io), [vscode-io](https://github.com/JacobPEvans/cc-edge-vscode-io)) plus OTLP (:4317) and HEC (:8088, NodePort :30088) inputs, ships via Cribl S2S (:10300) to the homelab Cribl Stream | :30910 |
 | `cribl-mcp-server` | Cribl Cloud MCP API server for Claude Code | :30030 |
 | `bifrost` | [Bifrost](https://github.com/maximhq/bifrost) AI gateway — multi-provider routing (OpenAI, Gemini, OpenRouter, local MLX) via OpenAI-compatible API. Secrets from Doppler K8s Operator. | :30080 |
 
@@ -71,7 +71,7 @@ Directory layout:
 - `k8s/overlays/local/` - Generated overlay with real volume paths (gitignored)
 - `scripts/` - Deployment and overlay generation scripts
 - `docker/` - Dockerfiles for ephemeral AI containers
-- `packs/` - (removed — packs now installed via `cribl pack install` from GitHub releases at pod startup). Edge: cc-edge-claude-code-otel, cc-edge-gemini-antigravity-io, cc-edge-vscode-io. Stream: cc-stream-github-copilot-rest-io. Note: `.crbl` downloads have no checksum/signature verification — acceptable for local OrbStack dev stack.
+- `packs/` - (removed — packs now installed via `cribl pack install` from GitHub releases at pod startup). Edge: cc-edge-claude-code-otel, cc-edge-gemini-antigravity-io, cc-edge-vscode-io. Note: `.crbl` downloads have no checksum/signature verification — acceptable for local OrbStack dev stack.
 - `docs/` - Extended documentation
 
 ## Dev Environment

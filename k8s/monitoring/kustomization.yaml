@@ -11,10 +11,8 @@ resources:
   - otel-collector/
   # Cribl Edge (managed by Cribl Cloud)
   - cribl-edge-managed/
-  # Cribl Edge (standalone)
+  # Cribl Edge (standalone) — sole egress: S2S to the homelab Cribl Stream
   - cribl-edge-standalone/
-  # Cribl Stream (standalone leader with UI)
-  - cribl-stream-standalone/
   # Cribl MCP Server (Cribl Cloud API access for Claude Code)
   - cribl-mcp-server/
   # Bifrost AI Gateway (multi-provider AI routing for Claude Code)

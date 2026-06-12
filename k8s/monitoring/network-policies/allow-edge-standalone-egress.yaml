@@ -1,6 +1,9 @@
 ---
-# Allow Cribl Edge Standalone to send events to Cribl Stream Standalone via HEC
-# and to download pack releases from GitHub over HTTPS at startup.
+# Allow Cribl Edge Standalone egress: Cribl S2S (:10300) to the homelab
+# HAProxy-fronted Stream workers, and HTTPS for pack downloads from GitHub at
+# startup. The S2S rule is port-only because the destination is outside the
+# cluster (the homelab address never appears in this public repo; the Edge
+# resolves it from CRIBL_S2S_HOST at start).
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -13,12 +16,8 @@ spec:
   policyTypes:
     - Egress
   egress:
-    - to:
-        - podSelector:
-            matchLabels:
-              app: cribl-stream-standalone
-      ports:
-        - port: 8088  # HEC input on Stream
+    - ports:
+        - port: 10300  # Cribl S2S to the homelab Stream (via HAProxy)
           protocol: TCP
     - ports:
         - port: 443  # HTTPS for pack download from GitHub

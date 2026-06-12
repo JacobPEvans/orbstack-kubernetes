@@ -1,0 +1,34 @@
+---
+# Allow Cribl Edge Standalone to receive data: OTLP from the OTEL collector
+# and Splunk-HEC from host producers via NodePort :30088 (NodePort traffic
+# arrives with a node-translated source, so the HEC rule is port-only — the
+# same pattern the retired Stream's UI NodePort policy used).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-edge-standalone-data-ingress
+  namespace: monitoring
+spec:
+  podSelector:
+    matchLabels:
+      app: cribl-edge-standalone
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: otel-collector
+      ports:
+        - port: 4317  # OTLP gRPC from OTEL
+          protocol: TCP
+    - ports:
+        - port: 8088  # HEC from host producers (NodePort 30088)
+          protocol: TCP
+    - from:
+        - podSelector:
+            matchLabels:
+              app: pipeline-heartbeat
+      ports:
+        - port: 9420  # health API probed by the pipeline heartbeat
+          protocol: TCP
