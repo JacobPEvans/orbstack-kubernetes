@@ -1,5 +1,6 @@
 ---
-# Allow OTEL collector to forward telemetry to Cribl Stream Standalone.
+# Allow OTEL collector to forward telemetry to the local Cribl Edge, which
+# ships everything to the homelab Cribl Stream over S2S.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -15,7 +16,7 @@ spec:
     - to:
         - podSelector:
             matchLabels:
-              app: cribl-stream-standalone
+              app: cribl-edge-standalone
       ports:
         - port: 4317  # OTLP gRPC
           protocol: TCP

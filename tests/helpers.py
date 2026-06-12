@@ -2,7 +2,6 @@
 
 import base64
 import json
-import re
 import ssl
 import time
 import urllib.error
@@ -27,7 +26,7 @@ def parse_otel_error_lines(log_text: str) -> list[str]:
 
 
 def find_flowing_stats(log_text: str) -> list[str]:
-    """Return log lines where Cribl Stream _raw stats show outBytes > 0.
+    """Return log lines where Cribl _raw stats show outBytes > 0.
 
     Checks outBytes > 0 (bytes physically sent to an external output),
     not just outEvents (which counts pipeline-internal routing).
@@ -146,17 +145,3 @@ def send_trace_with_retry(
             if attempt == retries - 1:
                 raise
             time.sleep(2**attempt)
-
-
-def url_present_in_outputs_yaml(url: str, yaml_text: str) -> bool:
-    """Return True if url appears as a 'url:' value in the YAML text.
-
-    Matches lines of the form:  url: <value>  with optional surrounding
-    whitespace and an optional matching pair of single or double quotes
-    around the value. The Cribl Stream configmap template wraps the URL
-    in double quotes
-    (k8s/monitoring/cribl-stream-standalone/configmap-cribl-config.yaml),
-    so the deployed outputs.yml renders as `url: "https://..."`; strict
-    unquoted matching gives a false negative.
-    """
-    return bool(re.search(rf"""^\s*url:\s*(['"]?){re.escape(url)}\1\s*$""", yaml_text, re.MULTILINE))

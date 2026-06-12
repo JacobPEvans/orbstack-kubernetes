@@ -17,7 +17,6 @@ All secrets are stored in SOPS-encrypted `secrets.enc.yaml`, including the Doppl
 | `DOPPLER_PROJECT` | Doppler project name (for Cribl secrets) |
 | `DOPPLER_CONFIG` | Doppler config name (for Cribl secrets) |
 | `CRIBL_CLOUD_MASTER_URL` | Alternative: direct Cribl Edge URL (if not using Doppler) |
-| `CRIBL_STREAM_PASSWORD` | Cribl Stream standalone admin password |
 | `SPLUNK_HEC_TOKEN` | Splunk HEC token (standalone edge to Splunk) |
 | `SPLUNK_NETWORK` | Splunk IP(s) from terraform output (JSON array, e.g. `["192.168.0.200"]`). HEC URL is derived automatically at deploy time. |
 | `CLAUDE_API_KEY` | AI container API key |
@@ -65,13 +64,13 @@ make validate
 make deploy-doppler
 ```
 
-## Cribl Stream
+## Cribl Stream (homelab)
 
-- **cribl-stream-standalone**: Local leader with UI at `http://localhost:30900` (admin / `CRIBL_STREAM_PASSWORD`)
+The laptop runs no Cribl Stream. All Edge egress is Cribl S2S on port 10300 to the homelab HAProxy-fronted Cribl Stream (host resolved from the `CRIBL_S2S_HOST` env var at container start), which passes events through to Splunk HEC. Index/sourcetype stamping and PII masking happen at the Edge output (`force-splunk-meta` pipeline) before egress.
 
 ## OTLP Telemetry
 
-The OTEL Collector forwards telemetry via gRPC to `cribl-stream-standalone:4317`. The standalone Stream instance has an `open_telemetry` source configured on port 4317.
+The OTEL Collector forwards telemetry via gRPC to `cribl-edge-standalone:4317`. The standalone Edge instance has an `open_telemetry` source configured on port 4317.
 
 ## Verify
 
@@ -89,11 +88,8 @@ kubectl logs -n monitoring statefulset/cribl-edge-managed --tail=10
 # Check Cribl Edge standalone UI
 open http://localhost:30910
 
-# Check Cribl Stream standalone UI
-open http://localhost:30900
-
-# Verify Cribl Stream standalone health (OTEL target)
-kubectl exec -n monitoring statefulset/cribl-stream-standalone -- curl -sf http://localhost:9000/api/v1/health
+# Verify Cribl Edge standalone health (OTEL target)
+kubectl exec -n monitoring statefulset/cribl-edge-standalone -- curl -sf http://localhost:9420/api/v1/health
 ```
 
 ## Update

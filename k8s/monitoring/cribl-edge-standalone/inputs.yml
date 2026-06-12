@@ -15,3 +15,31 @@ inputs:
     sendToRoutes: false
     connections:
       - output: proxmox-stream
+  in_otel:
+    # OTLP from the in-cluster otel-collector (which receives host producers
+    # via NodePort 30317). Replaces the retired laptop Stream's otel-in.
+    # Index/sourcetype are derived from `datatype` by the force-splunk-meta
+    # output pipeline on proxmox-stream.
+    type: open_telemetry
+    disabled: false
+    port: 4317
+    host: 0.0.0.0
+    grpcConfig: {}
+    sendToRoutes: false
+    connections:
+      - output: proxmox-stream
+  in_hec:
+    # Splunk-HEC-compatible input for host producers that POST to the
+    # cluster's HEC NodePort 30088 (registered in the host's ai-stack
+    # endpoint registry). Replaces the retired laptop Stream's edge-hec-in.
+    type: splunk_hec
+    disabled: false
+    port: 8088
+    host: 0.0.0.0
+    splunkHecAPI: /services/collector
+    tls:
+      disabled: true
+    requireToken: false
+    sendToRoutes: false
+    connections:
+      - output: proxmox-stream

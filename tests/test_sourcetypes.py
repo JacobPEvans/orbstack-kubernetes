@@ -1,9 +1,9 @@
 """Tier 4: Per-sourcetype E2E tests for the Claude Code and Gemini log pipelines.
 
 These tests verify that each sourcetype in the claude:code:* and gemini:cli:* families
-is correctly assigned by the Cribl Stream pipeline when events travel through the full
-path:
-  Host FS → Cribl Edge Standalone → Cribl Stream Standalone → Splunk HEC
+is correctly assigned by the Edge's force-splunk-meta output pipeline when events
+travel through the full path:
+  Host FS → Cribl Edge Standalone → homelab Cribl Stream (passthrough) → Splunk HEC
 
 Five test classes:
 
@@ -49,7 +49,7 @@ SOURCETYPE_PLANS = "claude:code:plans"
 SOURCETYPE_TASKS = "claude:code:tasks"
 SOURCETYPE_TEAMS = "claude:code:teams"
 SOURCETYPE_PLUGINS = "claude:code:plugins"
-# claude:code:otel is covered by TestStreamToSplunkForwarding in test_forwarding.py
+# claude:code:otel is covered by TestEdgeToHomelabForwarding in test_forwarding.py
 
 # Gemini sourcetype constants
 SOURCETYPE_GEMINI_SESSION = "gemini:cli:session"
@@ -152,7 +152,7 @@ def sentinel_session():
 def sentinel_subagent():
     """Write a JSONL sentinel to ~/.claude/projects/-test-sourcetype/<uuid>/subagents/.
 
-    The Cribl Stream pipeline differentiates subagent files from session files
+    The force-splunk-meta Edge pipeline differentiates subagent files from session files
     by the presence of 'subagents' in the source path, routing them to
     claude:code:subagent. Yields (path, sentinel_id). Cleans up after the test.
     """
@@ -304,7 +304,7 @@ def sentinel_teams():
 
 @pytest.mark.usefixtures("cluster_ready")
 class TestSourcetypeSentinels:
-    """Verify each sourcetype is correctly assigned end-to-end: Host FS → Edge → Stream → Splunk.
+    """Verify each sourcetype is correctly assigned end-to-end: Host FS → Edge → homelab Stream → Splunk.
 
     Each test writes a uniquely-identifiable sentinel file to the appropriate host
     directory, then polls Splunk until the sentinel appears with the expected
@@ -331,15 +331,15 @@ class TestSourcetypeSentinels:
         assert results, (
             f"Sentinel '{sentinel_id}' not found in Splunk with sourcetype={SOURCETYPE_SESSION} within 90s. "
             "Check that the Edge FileMonitor picks up ~/.claude/projects/ and that the "
-            "Stream pipeline assigns sourcetype=claude:code:session for session files."
+            "force-splunk-meta Edge pipeline assigns sourcetype=claude:code:session for session files."
         )
 
     def test_subagent_sourcetype(self, sentinel_subagent, splunk_client):
         """JSONL files in ~/.claude/projects/<proj>/<run>/subagents/ reach Splunk as claude:code:subagent.
 
-        The Cribl Stream pipeline differentiates subagent files from top-level session
-        files by matching 'subagents' in the source path. Writes a sentinel into the
-        subagents subdirectory and verifies the sourcetype assignment within 90s.
+        The force-splunk-meta Edge pipeline differentiates subagent files from top-level
+        session files by matching 'subagents' in the source path. Writes a sentinel into
+        the subagents subdirectory and verifies the sourcetype assignment within 90s.
         """
         _, sentinel_id = sentinel_subagent
         mgmt_url, admin_password = splunk_client
@@ -350,7 +350,7 @@ class TestSourcetypeSentinels:
         )
         assert results, (
             f"Sentinel '{sentinel_id}' not found in Splunk with sourcetype={SOURCETYPE_SUBAGENT} within 90s. "
-            "Check that the Stream pipeline eval distinguishes subagent paths "
+            "Check that the force-splunk-meta Edge pipeline eval distinguishes subagent paths "
             "(containing 'subagents/') from top-level session files."
         )
 
@@ -370,7 +370,7 @@ class TestSourcetypeSentinels:
         assert results, (
             f"Sentinel '{sentinel_id}' not found in Splunk with sourcetype={SOURCETYPE_LOGS} within 90s. "
             "Check that the Edge FileMonitor is configured to monitor ~/.claude/logs/ "
-            "and that the Stream pipeline assigns sourcetype=claude:code:logs."
+            "and that the force-splunk-meta Edge pipeline assigns sourcetype=claude:code:logs."
         )
 
     def test_plans_sourcetype(self, sentinel_plans, splunk_client):
@@ -388,8 +388,8 @@ class TestSourcetypeSentinels:
         )
         assert results, (
             f"Sentinel '{sentinel_id}' not found in Splunk with sourcetype={SOURCETYPE_PLANS} within 90s. "
-            "Check that the Edge FileMonitor is configured to monitor ~/.claude/plans/ "
-            "with a *.md file pattern and that the Stream pipeline assigns sourcetype=claude:code:plans."
+            "Check that the Edge FileMonitor is configured to monitor ~/.claude/plans/ with a *.md "
+            "file pattern and that the force-splunk-meta Edge pipeline assigns sourcetype=claude:code:plans."
         )
 
     def test_tasks_sourcetype(self, sentinel_tasks, splunk_client):
@@ -408,7 +408,7 @@ class TestSourcetypeSentinels:
         assert results, (
             f"Sentinel '{sentinel_id}' not found in Splunk with sourcetype={SOURCETYPE_TASKS} within 90s. "
             "Check that the Edge FileMonitor is configured to monitor ~/.claude/tasks/ "
-            "and that the Stream pipeline assigns sourcetype=claude:code:tasks."
+            "and that the force-splunk-meta Edge pipeline assigns sourcetype=claude:code:tasks."
         )
 
     def test_teams_sourcetype(self, sentinel_teams, splunk_client):
@@ -429,7 +429,7 @@ class TestSourcetypeSentinels:
         assert results, (
             f"Sentinel '{sentinel_id}' not found in Splunk with sourcetype={SOURCETYPE_TEAMS} within 180s. "
             "Check that the Edge FileMonitor is configured to monitor ~/.claude/teams/ "
-            "and that the Stream pipeline assigns sourcetype=claude:code:teams."
+            "and that the force-splunk-meta Edge pipeline assigns sourcetype=claude:code:teams."
         )
 
 
@@ -638,7 +638,7 @@ def sentinel_antigravity_brain():
 
 @pytest.mark.usefixtures("cluster_ready")
 class TestGeminiSourcetypeSentinels:
-    """Verify Gemini sourcetypes are correctly assigned end-to-end: Host FS → Edge → Stream → Splunk.
+    """Verify Gemini sourcetypes are correctly assigned end-to-end: Host FS → Edge → homelab Stream → Splunk.
 
     Uses safe write paths only (tmp/, antigravity/brain/) to avoid corrupting live Gemini data.
     Tests are ordered as readiness gates: mount checks → config checks → FileMonitor detection → Splunk.
@@ -738,7 +738,7 @@ class TestGeminiSourcetypeSentinels:
         Invokes the Gemini CLI with a unique sentinel prompt, then polls Splunk until
         the session file content appears with sourcetype=gemini:cli:session within 120s.
         This proves the full pipeline: Gemini CLI → ~/.gemini/tmp/ → Edge FileMonitor
-        (gemini-cli-sessions input) → Cribl Stream → Splunk HEC.
+        (gemini-cli-sessions input) → homelab Cribl Stream → Splunk HEC.
         """
         gemini_bin = shutil.which("gemini") or ""
         if not gemini_bin:
@@ -773,7 +773,7 @@ class TestGeminiSourcetypeSentinels:
             f"Gemini session sentinel '{sentinel_id}' not found in Splunk with "
             f"sourcetype={SOURCETYPE_GEMINI_SESSION} within 120s. "
             "Check that the Edge FileMonitor picks up ~/.gemini/tmp/**/*.json "
-            "(gemini-cli-sessions input) and that the Stream pipeline assigns "
+            "(gemini-cli-sessions input) and that the force-splunk-meta Edge pipeline assigns "
             "sourcetype=gemini:cli:session."
         )
 
@@ -788,7 +788,7 @@ class TestGeminiSourcetypeSentinels:
         - The antigravity-brain input config exists with resolved paths
         - The sentinel file is visible inside the edge pod
         - The FileMonitor is actively scanning the brain path
-        So if this test fails, the issue is in Stream routing or Splunk indexing.
+        So if this test fails, the issue is in the force-splunk-meta routing or Splunk indexing.
         """
         _, sentinel_id = sentinel_antigravity_brain
         mgmt_url, admin_password = splunk_client
@@ -801,8 +801,8 @@ class TestGeminiSourcetypeSentinels:
         assert results, (
             f"Sentinel '{sentinel_id}' not found in Splunk with sourcetype={SOURCETYPE_ANTIGRAVITY_BRAIN} within 90s. "
             "All precondition gates passed (mount accessible, config resolved, file visible in pod, "
-            "FileMonitor active), so the issue is likely in the Stream pipeline routing or Splunk index. "
-            "Check the Stream pipeline's sourcetype assignment and that index=gemini exists in Splunk."
+            "FileMonitor active), so the issue is likely in the force-splunk-meta routing or Splunk index. "
+            "Check the force-splunk-meta pipeline's sourcetype assignment and that index=gemini exists in Splunk."
         )
 
 

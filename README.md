@@ -10,8 +10,7 @@ Kubernetes monitoring stack for local OrbStack cluster. Collects, processes, and
 |-----------|---------|-------|
 | OTEL Collector | Telemetry collection (traces, metrics, logs) | 4317 (gRPC), 4318 (HTTP), 30317/30318 (NodePort) |
 | Cribl Edge (Managed) | Log collection, connected to Cribl Cloud | 9420 (OTEL), 9000 (UI) |
-| Cribl Edge (Standalone) | Local log collection, independent | 9420 (OTEL), 30910 (UI NodePort) |
-| Cribl Stream (Standalone) | Local log routing and transformation | 9000 (API), 30900 (UI NodePort) |
+| Cribl Edge (Standalone) | Local log collection + routing, ships via S2S to the homelab Cribl Stream | 4317 (OTLP), 8088 (HEC, 30088 NodePort), 9420 (API), 30910 (UI NodePort) |
 | Cribl MCP Server | Cribl Cloud MCP API server for Claude Code | 30030 (NodePort) |
 | AI Jobs | Ephemeral Claude Code / Gemini CLI containers | N/A |
 
@@ -58,11 +57,12 @@ make status
                     │  │ Cribl Edge    │   │     Cribl Cloud
                     │  │ (Standalone)  │   │
                     │  └───────┬───────┘   │
-                    │          │            │
-                    │  ┌───────▼───────┐   │
-                    │  │ Cribl Stream  │   │
-                    │  │ (Local)       │   │
-                    │  └───────────────┘   │
+                    └──────────┼───────────┘
+                               │ Cribl S2S :10300
+                    ┌──────────▼───────────┐
+                    │ Cribl Stream         │
+                    │ (homelab, HAProxy)   │
+                    │   └─► Splunk HEC     │
                     └──────────────────────┘
 ```
 
@@ -76,7 +76,6 @@ orbstack-kubernetes/
 │   │   ├── otel-collector/
 │   │   ├── cribl-edge-managed/
 │   │   ├── cribl-edge-standalone/
-│   │   ├── cribl-stream-standalone/
 │   │   ├── cribl-mcp-server/
 │   │   └── network-policies/
 │   └── overlays/

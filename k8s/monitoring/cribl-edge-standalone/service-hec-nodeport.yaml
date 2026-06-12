@@ -1,0 +1,22 @@
+---
+# HEC NodePort for host producers that POST Splunk-HEC events into the
+# cluster (registered as cribl_hec: 30088 in the host's ai-stack endpoint
+# registry). Carried over from the retired laptop cribl-stream-standalone so
+# the host endpoint stays stable across the offload.
+apiVersion: v1
+kind: Service
+metadata:
+  name: cribl-edge-standalone-hec
+  namespace: monitoring
+  labels:
+    app: cribl-edge-standalone
+spec:
+  type: NodePort
+  selector:
+    app: cribl-edge-standalone
+  ports:
+    - name: hec
+      port: 8088
+      targetPort: 8088
+      nodePort: 30088
+      protocol: TCP

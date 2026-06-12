@@ -22,11 +22,8 @@ OTEL_HTTP_ENDPOINT = f"http://{K8S_HOST}:30318"
 
 # Local port-forward ports — each test uses a unique port to avoid collisions.
 PF_OTEL_HEALTH = 13133
-PF_STREAM_HEALTH = 19420
 PF_EDGE_HEALTH = 19421
-PF_STREAM_INPUTS_A4 = 19422
-PF_STREAM_INPUTS_A5 = 19423
-PF_STREAM_OUTPUTS = 19424
+PF_EDGE_INPUTS = 19422
 
 # MCP server NodePort — accessed directly from macOS (not via port-forward).
 MCP_NODEPORT_URL = f"http://{K8S_HOST}:30030/mcp"
@@ -38,7 +35,6 @@ STATEFULSETS = [
     "otel-collector",
     "cribl-edge-managed",
     "cribl-edge-standalone",
-    "cribl-stream-standalone",
     "cribl-mcp-server",
     "bifrost",
 ]

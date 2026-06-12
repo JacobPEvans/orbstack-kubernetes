@@ -33,6 +33,12 @@ spec:
             - name: ui
               containerPort: 9000
               protocol: TCP
+            - name: otlp-grpc
+              containerPort: 4317
+              protocol: TCP
+            - name: hec
+              containerPort: 8088
+              protocol: TCP
           env:
             - name: CRIBL_DIST_MODE
               value: "edge"
@@ -70,7 +76,10 @@ spec:
                 sed -i "s/PLACEHOLDER_CRIBL_S2S_HOST/${CRIBL_S2S_HOST}/"
                 ${CRIBL_VOLUME_DIR}/local/edge/outputs.yml &&
                 cp /var/tmp/cribl-config/limits.yml
-                ${CRIBL_VOLUME_DIR}/local/edge/limits.yml
+                ${CRIBL_VOLUME_DIR}/local/edge/limits.yml &&
+                mkdir -p ${CRIBL_VOLUME_DIR}/local/edge/pipelines/force-splunk-meta &&
+                cp /var/tmp/cribl-config/pipelines-force-splunk-meta.yml
+                ${CRIBL_VOLUME_DIR}/local/edge/pipelines/force-splunk-meta/conf.yml
             - name: CRIBL_BEFORE_START_CMD_2
               value: >-
                 /opt/cribl/bin/cribl pack install

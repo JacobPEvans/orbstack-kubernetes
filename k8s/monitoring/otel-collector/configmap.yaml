@@ -61,10 +61,12 @@ data:
             action: upsert
 
     exporters:
-      # Forward OTLP telemetry to Cribl Stream Standalone via gRPC.
-      # Cribl Stream Standalone OTLP source: open_telemetry type, protocol: grpc, port 4317, 0.0.0.0
+      # Forward OTLP telemetry to the local Cribl Edge via gRPC; the Edge
+      # stamps Splunk metadata and ships everything to the homelab Cribl
+      # Stream over S2S (:10300). The laptop runs no Stream.
+      # Cribl Edge OTLP source: open_telemetry type, protocol: grpc, port 4317, 0.0.0.0
       otlp:
-        endpoint: cribl-stream-standalone:4317
+        endpoint: cribl-edge-standalone:4317
         tls:
           insecure: true
 

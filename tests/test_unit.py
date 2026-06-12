@@ -12,8 +12,7 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
-from fixtures import SAMPLE_HEC_URL
-from helpers import find_flowing_stats, parse_otel_error_lines, query_splunk, url_present_in_outputs_yaml
+from helpers import find_flowing_stats, parse_otel_error_lines, query_splunk
 
 
 class TestParseOtelErrorLines:
@@ -140,38 +139,6 @@ class TestQuerySplunk:
                 query_splunk("https://splunk:8089", "pass", "index=claude", verify_tls=True)
         assert mock_ctx.check_hostname is not False
         assert mock_ctx.verify_mode != ssl.CERT_NONE
-
-
-class TestUrlPresentInOutputsYaml:
-    def test_finds_exact_url(self):
-        yaml = f"outputs:\n  url: {SAMPLE_HEC_URL}\n"
-        assert url_present_in_outputs_yaml(SAMPLE_HEC_URL, yaml) is True
-
-    def test_finds_url_with_leading_spaces(self):
-        yaml = f"    url: {SAMPLE_HEC_URL}\n"
-        assert url_present_in_outputs_yaml(SAMPLE_HEC_URL, yaml) is True
-
-    def test_rejects_partial_match(self):
-        yaml = f"url: {SAMPLE_HEC_URL}/extra\n"
-        assert url_present_in_outputs_yaml(SAMPLE_HEC_URL, yaml) is False
-
-    def test_rejects_missing_url(self):
-        yaml = "host: splunk.example.com\nport: 8088\n"
-        assert url_present_in_outputs_yaml("https://splunk.example.com:8088/services/collector", yaml) is False
-
-    def test_special_chars_in_url_are_escaped(self):
-        # Dots in IP would match any char without re.escape — ensure they don't
-        yaml = "url: https://192X168Y0Z200:8088/services/collector\n"
-        assert url_present_in_outputs_yaml(SAMPLE_HEC_URL, yaml) is False
-
-    def test_finds_double_quoted_url(self):
-        # Cribl emits YAML with double-quoted string values
-        yaml = f'    url: "{SAMPLE_HEC_URL}"\n'
-        assert url_present_in_outputs_yaml(SAMPLE_HEC_URL, yaml) is True
-
-    def test_finds_single_quoted_url(self):
-        yaml = f"    url: '{SAMPLE_HEC_URL}'\n"
-        assert url_present_in_outputs_yaml(SAMPLE_HEC_URL, yaml) is True
 
 
 class TestSecurityExclusions:

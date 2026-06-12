@@ -36,17 +36,6 @@ else
   echo "           Set CRIBL_DIST_MASTER_URL or CRIBL_CLOUD_MASTER_URL, or use: make deploy-doppler"
 fi
 
-# Cribl Stream admin password
-if [ -n "${CRIBL_STREAM_PASSWORD:-}" ]; then
-  kubectl --context "$CONTEXT" create secret generic cribl-stream-admin \
-    --namespace "$NAMESPACE" \
-    --from-literal=password="$CRIBL_STREAM_PASSWORD" \
-    --dry-run=client -o yaml | kubectl --context "$CONTEXT" apply -f -
-  echo "  Created: cribl-stream-admin"
-else
-  echo "  SKIPPED: cribl-stream-admin (CRIBL_STREAM_PASSWORD not set)"
-fi
-
 # Cribl Edge standalone admin password
 if [ -n "${CRIBL_EDGE_PASSWORD:-}" ]; then
   kubectl --context "$CONTEXT" create secret generic cribl-edge-admin \
@@ -94,19 +83,6 @@ if [ -n "${CLAUDE_API_KEY:-}" ] || [ -n "${GEMINI_API_KEY:-}" ]; then
   echo "  Created: ai-api-keys"
 else
   echo "  SKIPPED: ai-api-keys (no API keys set)"
-fi
-
-# GitHub Copilot config (REST collector PAT)
-if [ -n "${GITHUB_COPILOT_PAT:-}" ]; then
-  GH_ARGS=(--from-literal=pat="$GITHUB_COPILOT_PAT")
-  [ -n "${GITHUB_COPILOT_ORG:-}" ] && GH_ARGS+=(--from-literal=org="$GITHUB_COPILOT_ORG")
-  kubectl --context "$CONTEXT" create secret generic github-copilot-config \
-    --namespace "$NAMESPACE" \
-    "${GH_ARGS[@]}" \
-    --dry-run=client -o yaml | kubectl --context "$CONTEXT" apply -f -
-  echo "  Created: github-copilot-config"
-else
-  echo "  SKIPPED: github-copilot-config (GITHUB_COPILOT_PAT not set)"
 fi
 
 # Heartbeat config (healthchecks.io ping URLs from SOPS)
@@ -223,7 +199,6 @@ echo "--- Step 3.5: Restarting StatefulSets ---"
 kubectl --context "$CONTEXT" -n "$NAMESPACE" rollout restart \
   statefulset/otel-collector \
   statefulset/cribl-edge-standalone \
-  statefulset/cribl-stream-standalone \
   statefulset/cribl-edge-managed \
   statefulset/cribl-mcp-server \
   statefulset/bifrost
@@ -237,14 +212,11 @@ declare -A timeouts=(
   # 420s: startupProbe max (10s + 30×10s = 310s) + postStart setup-edge.sh (MAX_RETRIES=150, 2s sleep = 300s max)
   # The postStart hook runs concurrently with the startupProbe; 420s gives ample margin for cold starts.
   [cribl-edge-standalone]=420s
-  # 1500s accounts for cold-start copy of ~575MB from /opt/cribl to /opt/cribl-data (local-path PVC).
-  # startupProbe budget = 10s + 120×10s = 1210s; deploy timeout must exceed that.
-  [cribl-stream-standalone]=1500s
   [cribl-mcp-server]=120s
   [bifrost]=120s
 )
 
-for name in otel-collector cribl-edge-managed cribl-edge-standalone cribl-stream-standalone cribl-mcp-server bifrost; do
+for name in otel-collector cribl-edge-managed cribl-edge-standalone cribl-mcp-server bifrost; do
   kubectl --context "$CONTEXT" -n "$NAMESPACE" rollout status "statefulset/$name" --timeout="${timeouts[$name]}"
 done
 echo ""
@@ -255,7 +227,7 @@ echo ""
 echo "Service Endpoints:"
 echo "  OTEL gRPC:                   localhost:30317"
 echo "  OTEL HTTP:                   localhost:30318"
-echo "  Cribl Stream Standalone UI:  http://localhost:30900  (admin / CRIBL_STREAM_PASSWORD)"
+echo "  Cribl Edge HEC:              http://localhost:30088/services/collector"
 echo "  Cribl Edge Standalone UI:    http://localhost:30910"
 echo "  Cribl MCP Server:            http://localhost:30030/mcp"
 echo "  Bifrost AI Gateway:          http://localhost:30080"

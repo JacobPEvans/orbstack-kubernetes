@@ -1,8 +1,8 @@
 """End-to-end warmup: send a trace and verify it reaches Splunk.
 
-Proves the full pipeline (OTEL Collector -> Cribl Stream -> Splunk HEC)
-is delivering events before tests start.  Exits 0 only when Splunk has
-the sentinel trace, exits 1 after 180s timeout.
+Proves the full pipeline (OTEL Collector -> Cribl Edge -> homelab Cribl
+Stream -> Splunk HEC) is delivering events before tests start.  Exits 0
+only when Splunk has the sentinel trace, exits 1 after 180s timeout.
 """
 
 import os
@@ -24,7 +24,7 @@ POLL_TIMEOUT = 180
 def dump_diagnostics() -> None:
     """Print pod logs to help diagnose pipeline failures."""
     print("\n--- Diagnostic pod logs ---")
-    for sts in ["otel-collector", "cribl-stream-standalone"]:
+    for sts in ["otel-collector", "cribl-edge-standalone"]:
         print(f"\n[{sts}] (last 30 lines):")
         try:
             result = subprocess.run(
