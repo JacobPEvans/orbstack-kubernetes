@@ -20,7 +20,7 @@ spec:
             matchLabels:
               app: otel-collector
       ports:
-        - port: 4317  # OTLP gRPC from OTEL
+        - port: 14317  # OTLP gRPC from OTEL (pod port; service maps 4317 → 14317)
           protocol: TCP
     - ports:
         - port: 8088  # HEC from host producers (NodePort 30088)

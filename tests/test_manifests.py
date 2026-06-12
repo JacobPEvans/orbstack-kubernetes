@@ -171,18 +171,45 @@ class TestOtelEdgePath:
             "OTEL egress policy must restrict to cribl-edge-standalone via podSelector"
         )
 
-    def test_otel_egress_policy_uses_otlp_port(self):
-        """allow-otel-egress must specify port 4317 (OTLP gRPC)."""
+    def test_otel_egress_policy_uses_otlp_pod_port(self):
+        """allow-otel-egress must specify pod port 14317.
+
+        Network policies match the post-DNAT pod port, not the service port.
+        The Edge's in_otel listens on 14317 because the gemini pack squats
+        127.0.0.1:4317 and Cribl's conflict check is port-wide.
+        """
         policy_text = (NETWORK_POLICIES_DIR / "allow-otel-egress.yaml").read_text()
-        assert "4317" in policy_text, "OTEL egress policy must specify port 4317 for OTLP gRPC forwarding to Edge"
+        assert "14317" in policy_text, (
+            "OTEL egress policy must specify pod port 14317 (post-DNAT) for OTLP gRPC forwarding to Edge"
+        )
 
     def test_edge_data_ingress_accepts_otel_traffic(self):
-        """allow-edge-standalone-data-ingress must permit otel-collector on port 4317."""
+        """allow-edge-standalone-data-ingress must permit otel-collector on pod port 14317."""
         policy_text = (NETWORK_POLICIES_DIR / "allow-edge-standalone-data-ingress.yaml").read_text()
         assert "otel-collector" in policy_text, (
             "Edge standalone data ingress policy must permit otel-collector as a source"
         )
-        assert "4317" in policy_text, "Edge standalone data ingress policy must permit port 4317 for OTEL traffic"
+        assert "14317" in policy_text, (
+            "Edge standalone data ingress policy must permit pod port 14317 (post-DNAT) for OTEL traffic"
+        )
+
+    def test_edge_otlp_service_maps_4317_to_pod_port(self):
+        """The Edge service must keep the 4317 external contract, mapped to pod port 14317."""
+        service = yaml.safe_load((EDGE_STANDALONE_DIR / "service.yaml").read_text())
+        otlp = next(p for p in service["spec"]["ports"] if p["name"] == "otlp-grpc")
+        assert otlp["port"] == 4317 and otlp["targetPort"] == 14317, (
+            "otlp-grpc must expose 4317 externally and target 14317 — the gemini pack squats "
+            "127.0.0.1:4317 in-pod and Cribl disables conflicting sources port-wide"
+        )
+
+    def test_edge_in_otel_listens_on_unconflicted_port(self):
+        """in_otel must listen on 14317 — 4317 collides with the gemini pack's loopback input."""
+        inputs = yaml.safe_load((EDGE_STANDALONE_DIR / "inputs.yml").read_text())
+        in_otel = inputs["inputs"]["in_otel"]
+        assert in_otel["port"] == 14317, (
+            "in_otel on 4317 is disabled by Cribl ('host and port conflict') because the "
+            "cc-edge-gemini-antigravity pack ships an input on 127.0.0.1:4317"
+        )
 
 
 class TestBifrostConfig:

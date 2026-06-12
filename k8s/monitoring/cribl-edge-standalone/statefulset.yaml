@@ -34,7 +34,9 @@ spec:
               containerPort: 9000
               protocol: TCP
             - name: otlp-grpc
-              containerPort: 4317
+              # 14317 pod-side: 4317 is squatted by the gemini pack's
+              # loopback input (see inputs.yml); the service maps 4317 here.
+              containerPort: 14317
               protocol: TCP
             - name: hec
               containerPort: 8088
@@ -58,8 +60,12 @@ spec:
               value: "/home/vscode/Library/Application Support/Code"
             - name: VSCODE_EXT_HOME
               value: "/home/vscode"
-            - name: CRIBL_EDGE_API_HOST
-              value: "0.0.0.0"
+            # Bind the Edge API (9420) to all interfaces so the in-cluster
+            # pipeline-heartbeat can health-check it; without this Cribl
+            # listens on 127.0.0.1 only. CRIBL_EDGE (any value) is the
+            # documented container knob — CRIBL_EDGE_API_HOST does not exist.
+            - name: CRIBL_EDGE
+              value: "1"
             # Homelab Cribl S2S endpoint (HAProxy-fronted Stream workers).
             # Bare hostname resolves via the host resolver; override with an
             # FQDN in a local overlay if single-label lookup fails.

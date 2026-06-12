@@ -20,8 +20,10 @@ spec:
       targetPort: 9000
       protocol: TCP
     - name: otlp-grpc
+      # External contract stays 4317 (OTLP gRPC); pod listener is 14317
+      # because the gemini pack squats 127.0.0.1:4317 (see inputs.yml).
       port: 4317
-      targetPort: 4317
+      targetPort: 14317
       protocol: TCP
     - name: hec
       port: 8088
