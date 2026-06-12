@@ -146,8 +146,11 @@ class TestOtelEdgePath:
 
     The full data path is: Edge → homelab Stream → Splunk (CLAUDE.md invariant).
     This class covers the OTEL → Edge sub-path: the OTEL collector must
-    forward to cribl-edge-standalone via OTLP gRPC (port 4317), enforced
-    by both the ConfigMap exporter config and the network policies.
+    forward to cribl-edge-standalone via OTLP gRPC on pod port 14317,
+    enforced by the ConfigMap exporter config and the network policies.
+    14317, not the OTLP-standard 4317: the gemini pack squats 127.0.0.1:4317
+    in-pod and Cribl disables conflicting sources port-wide; the Edge
+    service is headless, so clients dial the pod port directly.
     """
 
     def test_otel_configmap_exporter_targets_edge_not_splunk(self):
@@ -158,10 +161,11 @@ class TestOtelEdgePath:
         )
 
     def test_otel_configmap_exporter_uses_otlp_grpc_port(self):
-        """OTEL ConfigMap otlp exporter endpoint must use port 4317 (OTLP gRPC)."""
+        """OTEL ConfigMap otlp exporter endpoint must dial the Edge pod port 14317."""
         configmap_text = (OTEL_COLLECTOR_DIR / "configmap.yaml").read_text()
-        assert "cribl-edge-standalone:4317" in configmap_text, (
-            "OTEL ConfigMap otlp exporter must use port 4317 (OTLP gRPC) to reach cribl-edge-standalone"
+        assert "cribl-edge-standalone:14317" in configmap_text, (
+            "OTEL ConfigMap otlp exporter must dial pod port 14317 — the headless Edge service "
+            "does no port remapping, and 4317 is squatted in-pod by the gemini pack"
         )
 
     def test_otel_egress_policy_targets_edge_pod_selector(self):
@@ -193,13 +197,20 @@ class TestOtelEdgePath:
             "Edge standalone data ingress policy must permit pod port 14317 (post-DNAT) for OTEL traffic"
         )
 
-    def test_edge_otlp_service_maps_4317_to_pod_port(self):
-        """The Edge service must keep the 4317 external contract, mapped to pod port 14317."""
+    def test_edge_otlp_service_port_matches_pod_listener(self):
+        """The headless Edge service must declare the real pod port 14317 for OTLP.
+
+        clusterIP: None means DNS returns the pod IP and no kube-proxy port
+        remapping happens — a port/targetPort split would silently lie.
+        """
         service = yaml.safe_load((EDGE_STANDALONE_DIR / "service.yaml").read_text())
+        assert service["spec"].get("clusterIP") == "None", (
+            "cribl-edge-standalone is expected to be headless (statefulset governing service)"
+        )
         otlp = next(p for p in service["spec"]["ports"] if p["name"] == "otlp-grpc")
-        assert otlp["port"] == 4317 and otlp["targetPort"] == 14317, (
-            "otlp-grpc must expose 4317 externally and target 14317 — the gemini pack squats "
-            "127.0.0.1:4317 in-pod and Cribl disables conflicting sources port-wide"
+        assert otlp["port"] == 14317 and otlp["targetPort"] == 14317, (
+            "otlp-grpc must declare pod port 14317 on both port and targetPort — the gemini pack "
+            "squats 127.0.0.1:4317 in-pod, and headless services cannot remap ports"
         )
 
     def test_edge_in_otel_listens_on_unconflicted_port(self):
