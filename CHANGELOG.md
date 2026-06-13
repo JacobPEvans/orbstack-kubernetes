@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.0.2](https://github.com/dryvist/orbstack-kubernetes/compare/v2.0.1...v2.0.2) (2026-06-13)
+
+
+### Bug Fixes
+
+* **cribl-edge:** seed S2S endpoint FQDN from a persisted secret ([#277](https://github.com/dryvist/orbstack-kubernetes/issues/277)) ([6a82df0](https://github.com/dryvist/orbstack-kubernetes/commit/6a82df0cd08f4e40e84178e51aa81ee01791d973))
+
 ## [2.0.1](https://github.com/dryvist/orbstack-kubernetes/compare/v2.0.0...v2.0.1) (2026-06-12)
 
 
