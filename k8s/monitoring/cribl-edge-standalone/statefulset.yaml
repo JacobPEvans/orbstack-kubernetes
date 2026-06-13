@@ -61,10 +61,18 @@ spec:
             - name: CRIBL_EDGE_API_HOST
               value: "0.0.0.0"
             # Homelab Cribl S2S endpoint (HAProxy-fronted Stream workers).
-            # Bare hostname resolves via the host resolver; override with an
-            # FQDN in a local overlay if single-label lookup fails.
+            # Single-label names do NOT resolve in-cluster (cluster DNS search
+            # domains don't cover the internal zone), so the FQDN lives in the
+            # persisted cribl-s2s-config secret, seeded by deploy.sh from
+            # CRIBL_S2S_HOST (SOPS) — same pattern as splunk-hec-config.
+            # Optional: without the secret the before-start sed falls back to
+            # the bare name.
             - name: CRIBL_S2S_HOST
-              value: "haproxy"
+              valueFrom:
+                secretKeyRef:
+                  name: cribl-s2s-config
+                  key: host
+                  optional: true
             - name: CRIBL_BEFORE_START_CMD_1
               value: >-
                 find ${CRIBL_VOLUME_DIR}/data -depth -delete 2>/dev/null;
@@ -73,7 +81,7 @@ spec:
                 ${CRIBL_VOLUME_DIR}/local/edge/inputs.yml &&
                 cp /var/tmp/cribl-config/outputs.yml
                 ${CRIBL_VOLUME_DIR}/local/edge/outputs.yml &&
-                sed -i "s/PLACEHOLDER_CRIBL_S2S_HOST/${CRIBL_S2S_HOST}/"
+                sed -i "s/PLACEHOLDER_CRIBL_S2S_HOST/${CRIBL_S2S_HOST:-haproxy}/"
                 ${CRIBL_VOLUME_DIR}/local/edge/outputs.yml &&
                 cp /var/tmp/cribl-config/limits.yml
                 ${CRIBL_VOLUME_DIR}/local/edge/limits.yml &&
