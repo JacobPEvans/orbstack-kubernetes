@@ -20,8 +20,12 @@ spec:
       targetPort: 9000
       protocol: TCP
     - name: otlp-grpc
-      port: 4317
-      targetPort: 4317
+      # 14317, not the OTLP-standard 4317: the gemini pack squats
+      # 127.0.0.1:4317 in-pod (see inputs.yml). This service is HEADLESS
+      # (clusterIP: None), so there is no kube-proxy port remapping —
+      # clients resolve the pod IP and must dial the pod port directly.
+      port: 14317
+      targetPort: 14317
       protocol: TCP
     - name: hec
       port: 8088

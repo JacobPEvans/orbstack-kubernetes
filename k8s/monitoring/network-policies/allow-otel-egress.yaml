@@ -18,5 +18,5 @@ spec:
             matchLabels:
               app: cribl-edge-standalone
       ports:
-        - port: 4317  # OTLP gRPC
+        - port: 14317  # OTLP gRPC (pod port — netpols match post-DNAT; service maps 4317 → 14317)
           protocol: TCP

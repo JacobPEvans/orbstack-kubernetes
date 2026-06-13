@@ -64,9 +64,11 @@ data:
       # Forward OTLP telemetry to the local Cribl Edge via gRPC; the Edge
       # stamps Splunk metadata and ships everything to the homelab Cribl
       # Stream over S2S (:10300). The laptop runs no Stream.
-      # Cribl Edge OTLP source: open_telemetry type, protocol: grpc, port 4317, 0.0.0.0
+      # Cribl Edge OTLP source: open_telemetry type, protocol: grpc, 0.0.0.0.
+      # Pod port 14317 (NOT 4317 — the gemini pack squats it in-pod), dialed
+      # directly: the Edge service is headless, so no port remapping exists.
       otlp:
-        endpoint: cribl-edge-standalone:4317
+        endpoint: cribl-edge-standalone:14317
         tls:
           insecure: true
 

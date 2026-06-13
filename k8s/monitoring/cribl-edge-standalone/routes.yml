@@ -1,0 +1,20 @@
+# Top-level Edge routes. Overrides the stock default route (pipeline: main)
+# to run force-splunk-meta as the ROUTE pipeline.
+#
+# Why here and not only on the destination: Cribl Edge provably does NOT run
+# the destination post-processing pipeline for route-delivered events (the
+# cc-edge-* pack outputs) — they egressed unstamped (Splunk index=main,
+# sourcetype=httpevent) while direct-connection events (in_otel/in_hec) were
+# stamped by the same destination pipeline. A route pipeline always runs for
+# routed events. The pipeline's evals are conditional (index || ...), so
+# direct-connection events that also hit the destination copy are unaffected
+# by double processing, and the mask replacements are idempotent.
+routes:
+  - id: default
+    name: default
+    final: true
+    disabled: false
+    pipeline: force-splunk-meta
+    description: All routed (pack) traffic — stamp Splunk metadata + mask PII
+    filter: "true"
+    output: default

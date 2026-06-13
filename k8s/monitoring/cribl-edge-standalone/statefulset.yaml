@@ -34,7 +34,9 @@ spec:
               containerPort: 9000
               protocol: TCP
             - name: otlp-grpc
-              containerPort: 4317
+              # 14317 pod-side: 4317 is squatted by the gemini pack's
+              # loopback input (see inputs.yml); the service maps 4317 here.
+              containerPort: 14317
               protocol: TCP
             - name: hec
               containerPort: 8088
@@ -58,8 +60,12 @@ spec:
               value: "/home/vscode/Library/Application Support/Code"
             - name: VSCODE_EXT_HOME
               value: "/home/vscode"
-            - name: CRIBL_EDGE_API_HOST
-              value: "0.0.0.0"
+            # Bind the Edge API (9420) to all interfaces so the in-cluster
+            # pipeline-heartbeat can health-check it; without this Cribl
+            # listens on 127.0.0.1 only. CRIBL_EDGE (any value) is the
+            # documented container knob — CRIBL_EDGE_API_HOST does not exist.
+            - name: CRIBL_EDGE
+              value: "1"
             # Homelab Cribl S2S endpoint (HAProxy-fronted Stream workers).
             # Single-label names do NOT resolve in-cluster (cluster DNS search
             # domains don't cover the internal zone), so the FQDN lives in the
@@ -83,6 +89,8 @@ spec:
                 ${CRIBL_VOLUME_DIR}/local/edge/outputs.yml &&
                 sed -i "s/PLACEHOLDER_CRIBL_S2S_HOST/${CRIBL_S2S_HOST:-haproxy}/"
                 ${CRIBL_VOLUME_DIR}/local/edge/outputs.yml &&
+                cp /var/tmp/cribl-config/routes.yml
+                ${CRIBL_VOLUME_DIR}/local/edge/routes.yml &&
                 cp /var/tmp/cribl-config/limits.yml
                 ${CRIBL_VOLUME_DIR}/local/edge/limits.yml &&
                 mkdir -p ${CRIBL_VOLUME_DIR}/local/edge/pipelines/force-splunk-meta &&

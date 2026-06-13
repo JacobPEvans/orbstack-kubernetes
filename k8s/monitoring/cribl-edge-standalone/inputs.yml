@@ -20,9 +20,13 @@ inputs:
     # via NodePort 30317). Replaces the retired laptop Stream's otel-in.
     # Index/sourcetype are derived from `datatype` by the force-splunk-meta
     # output pipeline on proxmox-stream.
+    # Pod-side port is 14317, NOT 4317: the cc-edge-gemini-antigravity pack
+    # ships a gemini-cli-otel input squatting on 127.0.0.1:4317, and Cribl's
+    # conflict check is port-wide ("Source will be disabled"). The service
+    # still exposes 4317 externally and maps it here.
     type: open_telemetry
     disabled: false
-    port: 4317
+    port: 14317
     host: 0.0.0.0
     grpcConfig: {}
     sendToRoutes: false

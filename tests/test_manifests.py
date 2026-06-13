@@ -146,8 +146,11 @@ class TestOtelEdgePath:
 
     The full data path is: Edge → homelab Stream → Splunk (CLAUDE.md invariant).
     This class covers the OTEL → Edge sub-path: the OTEL collector must
-    forward to cribl-edge-standalone via OTLP gRPC (port 4317), enforced
-    by both the ConfigMap exporter config and the network policies.
+    forward to cribl-edge-standalone via OTLP gRPC on pod port 14317,
+    enforced by the ConfigMap exporter config and the network policies.
+    14317, not the OTLP-standard 4317: the gemini pack squats 127.0.0.1:4317
+    in-pod and Cribl disables conflicting sources port-wide; the Edge
+    service is headless, so clients dial the pod port directly.
     """
 
     def test_otel_configmap_exporter_targets_edge_not_splunk(self):
@@ -158,10 +161,11 @@ class TestOtelEdgePath:
         )
 
     def test_otel_configmap_exporter_uses_otlp_grpc_port(self):
-        """OTEL ConfigMap otlp exporter endpoint must use port 4317 (OTLP gRPC)."""
+        """OTEL ConfigMap otlp exporter endpoint must dial the Edge pod port 14317."""
         configmap_text = (OTEL_COLLECTOR_DIR / "configmap.yaml").read_text()
-        assert "cribl-edge-standalone:4317" in configmap_text, (
-            "OTEL ConfigMap otlp exporter must use port 4317 (OTLP gRPC) to reach cribl-edge-standalone"
+        assert "cribl-edge-standalone:14317" in configmap_text, (
+            "OTEL ConfigMap otlp exporter must dial pod port 14317 — the headless Edge service "
+            "does no port remapping, and 4317 is squatted in-pod by the gemini pack"
         )
 
     def test_otel_egress_policy_targets_edge_pod_selector(self):
@@ -171,18 +175,91 @@ class TestOtelEdgePath:
             "OTEL egress policy must restrict to cribl-edge-standalone via podSelector"
         )
 
-    def test_otel_egress_policy_uses_otlp_port(self):
-        """allow-otel-egress must specify port 4317 (OTLP gRPC)."""
+    def test_otel_egress_policy_uses_otlp_pod_port(self):
+        """allow-otel-egress must specify pod port 14317.
+
+        Network policies match the post-DNAT pod port, not the service port.
+        The Edge's in_otel listens on 14317 because the gemini pack squats
+        127.0.0.1:4317 and Cribl's conflict check is port-wide.
+        """
         policy_text = (NETWORK_POLICIES_DIR / "allow-otel-egress.yaml").read_text()
-        assert "4317" in policy_text, "OTEL egress policy must specify port 4317 for OTLP gRPC forwarding to Edge"
+        assert "14317" in policy_text, (
+            "OTEL egress policy must specify pod port 14317 (post-DNAT) for OTLP gRPC forwarding to Edge"
+        )
 
     def test_edge_data_ingress_accepts_otel_traffic(self):
-        """allow-edge-standalone-data-ingress must permit otel-collector on port 4317."""
+        """allow-edge-standalone-data-ingress must permit otel-collector on pod port 14317."""
         policy_text = (NETWORK_POLICIES_DIR / "allow-edge-standalone-data-ingress.yaml").read_text()
         assert "otel-collector" in policy_text, (
             "Edge standalone data ingress policy must permit otel-collector as a source"
         )
-        assert "4317" in policy_text, "Edge standalone data ingress policy must permit port 4317 for OTEL traffic"
+        assert "14317" in policy_text, (
+            "Edge standalone data ingress policy must permit pod port 14317 (post-DNAT) for OTEL traffic"
+        )
+
+    def test_edge_otlp_service_port_matches_pod_listener(self):
+        """The headless Edge service must declare the real pod port 14317 for OTLP.
+
+        clusterIP: None means DNS returns the pod IP and no kube-proxy port
+        remapping happens — a port/targetPort split would silently lie.
+        """
+        service = yaml.safe_load((EDGE_STANDALONE_DIR / "service.yaml").read_text())
+        assert service["spec"].get("clusterIP") == "None", (
+            "cribl-edge-standalone is expected to be headless (statefulset governing service)"
+        )
+        otlp = next(p for p in service["spec"]["ports"] if p["name"] == "otlp-grpc")
+        assert otlp["port"] == 14317 and otlp["targetPort"] == 14317, (
+            "otlp-grpc must declare pod port 14317 on both port and targetPort — the gemini pack "
+            "squats 127.0.0.1:4317 in-pod, and headless services cannot remap ports"
+        )
+
+    def test_default_route_runs_force_splunk_meta(self):
+        """The Edge's default route must run force-splunk-meta as its ROUTE pipeline.
+
+        Destination post-processing alone is not enough: Cribl Edge does not
+        apply it to route-delivered (pack) events — they reached Splunk
+        unstamped (index=main, sourcetype=httpevent) while direct-connection
+        events were stamped. Route pipelines always run for routed events.
+        """
+        routes = yaml.safe_load((EDGE_STANDALONE_DIR / "routes.yml").read_text())["routes"]
+        default = next(r for r in routes if r["id"] == "default")
+        assert default["pipeline"] == "force-splunk-meta", (
+            "default route must run force-splunk-meta so pack events get index/sourcetype + PII masking"
+        )
+        assert default["output"] == "default" and default["final"] is True
+
+    def test_routes_yml_is_copied_at_container_start(self):
+        """CRIBL_BEFORE_START_CMD_1 must install routes.yml, and the configmap must carry it."""
+        statefulset_text = (EDGE_STANDALONE_DIR / "statefulset.yaml").read_text()
+        assert "routes.yml" in statefulset_text, (
+            "statefulset CRIBL_BEFORE_START_CMD_1 must copy routes.yml into local/edge/"
+        )
+        kustomization_text = (EDGE_STANDALONE_DIR / "kustomization.yaml").read_text()
+        assert "routes.yml=routes.yml" in kustomization_text, "kustomization configMapGenerator must include routes.yml"
+
+    def test_force_splunk_meta_mask_uses_valid_cribl_schema(self):
+        """Mask rules must use matchRegex/replaceExpr — Cribl's actual schema.
+
+        The legacy regex/replacement keys load as undefined, the mask function
+        throws at init, and Cribl skips the WHOLE pipeline: no index/sourcetype
+        stamping, no PII masking (silently broken since #207).
+        """
+        pipeline = yaml.safe_load((EDGE_STANDALONE_DIR / "pipelines-force-splunk-meta.yml").read_text())
+        mask = next(f for f in pipeline["functions"] if f["id"] == "mask")
+        for rule in mask["conf"]["rules"]:
+            assert "matchRegex" in rule and "replaceExpr" in rule, (
+                f"Mask rule {rule} must use matchRegex/replaceExpr (Cribl schema); "
+                "regex/replacement keys fail function init and disable the whole pipeline"
+            )
+
+    def test_edge_in_otel_listens_on_unconflicted_port(self):
+        """in_otel must listen on 14317 — 4317 collides with the gemini pack's loopback input."""
+        inputs = yaml.safe_load((EDGE_STANDALONE_DIR / "inputs.yml").read_text())
+        in_otel = inputs["inputs"]["in_otel"]
+        assert in_otel["port"] == 14317, (
+            "in_otel on 4317 is disabled by Cribl ('host and port conflict') because the "
+            "cc-edge-gemini-antigravity pack ships an input on 127.0.0.1:4317"
+        )
 
 
 class TestBifrostConfig:
