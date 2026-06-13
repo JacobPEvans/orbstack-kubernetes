@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.0.3](https://github.com/dryvist/orbstack-kubernetes/compare/v2.0.2...v2.0.3) (2026-06-13)
+
+
+### Bug Fixes
+
+* **cribl-edge:** unblock in_otel (pack squats 4317) and bind the API for heartbeats ([#278](https://github.com/dryvist/orbstack-kubernetes/issues/278)) ([d319ecb](https://github.com/dryvist/orbstack-kubernetes/commit/d319ecb2c296457574ce18f9058937159e3f7683))
+
 ## [2.0.2](https://github.com/dryvist/orbstack-kubernetes/compare/v2.0.1...v2.0.2) (2026-06-13)
 
 
