@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.0.4](https://github.com/dryvist/orbstack-kubernetes/compare/v2.0.3...v2.0.4) (2026-06-14)
+
+
+### Bug Fixes
+
+* **makefile:** power-save suspends heartbeat CronJobs; correct runner repo ([#281](https://github.com/dryvist/orbstack-kubernetes/issues/281)) ([1135e81](https://github.com/dryvist/orbstack-kubernetes/commit/1135e812b05abc0d4fb83ab88a9853b428c6b222))
+
 ## [2.0.3](https://github.com/dryvist/orbstack-kubernetes/compare/v2.0.2...v2.0.3) (2026-06-13)
 
 
