@@ -2,9 +2,10 @@
 
 CONTEXT ?= orbstack
 NAMESPACE := monitoring
-GITHUB_REPO ?= JacobPEvans/orbstack-kubernetes
+GITHUB_REPO ?= dryvist/orbstack-kubernetes
 KUSTOMIZE_DIRS := k8s/monitoring
 MONITORING_STATEFULSETS := otel-collector cribl-edge-managed cribl-edge-standalone cribl-mcp-server bifrost
+MONITORING_CRONJOBS := heartbeat-edge heartbeat-otel heartbeat-splunk pipeline-heartbeat
 
 # Virtual environment configuration
 VENV ?= .venv
@@ -108,11 +109,19 @@ warmup: ## Send warmup trace to prime OTEL gRPC connection (retries 3x)
 power-save: ## Scale all monitoring pods to 0 replicas (battery saver)
 	@echo "Scaling down monitoring stack..."
 	kubectl --context $(CONTEXT) -n $(NAMESPACE) scale statefulset $(MONITORING_STATEFULSETS) --replicas=0
-	@echo "All monitoring pods scaled to 0. Run 'make full-power' to restore."
+	@echo "Suspending heartbeat CronJobs..."
+	@for cj in $(MONITORING_CRONJOBS); do \
+		kubectl --context $(CONTEXT) -n $(NAMESPACE) patch cronjob $$cj -p '{"spec":{"suspend":true}}'; \
+	done
+	@echo "All monitoring pods scaled to 0 + CronJobs suspended. Run 'make full-power' to restore."
 
 full-power: ## Scale all monitoring pods to 1 replica (full power)
 	@echo "Scaling up monitoring stack..."
 	kubectl --context $(CONTEXT) -n $(NAMESPACE) scale statefulset $(MONITORING_STATEFULSETS) --replicas=1
+	@echo "Resuming heartbeat CronJobs..."
+	@for cj in $(MONITORING_CRONJOBS); do \
+		kubectl --context $(CONTEXT) -n $(NAMESPACE) patch cronjob $$cj -p '{"spec":{"suspend":false}}'; \
+	done
 	@echo "Waiting for rollouts..."
 	@for sts in $(MONITORING_STATEFULSETS); do \
 		kubectl --context $(CONTEXT) -n $(NAMESPACE) rollout status statefulset/$$sts --timeout=120s; \
