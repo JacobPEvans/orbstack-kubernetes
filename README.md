@@ -18,7 +18,7 @@ Kubernetes monitoring stack for local OrbStack cluster. Collects, processes, and
 > (VMs/containers/servers). The managed Edge in this cluster qualifies
 > (Linux containers); macOS hosts run standalone, GitOps-managed Edge nodes.
 
-## Quick Start
+## Installation
 
 From a clone of this repo (any local path):
 
@@ -92,7 +92,7 @@ orbstack-kubernetes/
 └── Makefile
 ```
 
-## Make Targets
+## Usage
 
 | Target | Description |
 |--------|-------------|
@@ -140,3 +140,7 @@ direnv allow                     # one-time per worktree
 - [Deployment Guide](docs/DEPLOYMENT.md)
 - [Troubleshooting](docs/TROUBLESHOOTING.md)
 - [AI Containers](docs/AI-CONTAINERS.md)
+
+---
+
+> Part of a [larger ecosystem of ~40 repos](https://docs.jacobpevans.com) — see how it all fits together.
