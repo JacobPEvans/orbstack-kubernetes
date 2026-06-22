@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.0.5](https://github.com/dryvist/orbstack-kubernetes/compare/v2.0.4...v2.0.5) (2026-06-22)
+
+
+### Bug Fixes
+
+* **deps:** refresh gh-aw action SHA pins [aw:gh-aw-pin-refresh] ([#287](https://github.com/dryvist/orbstack-kubernetes/issues/287)) ([1e3b662](https://github.com/dryvist/orbstack-kubernetes/commit/1e3b662f51ca9aae9fba4516906c9efb9e94ee08))
+
 ## [2.0.4](https://github.com/dryvist/orbstack-kubernetes/compare/v2.0.3...v2.0.4) (2026-06-14)
 
 
