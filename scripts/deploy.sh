@@ -114,7 +114,7 @@ else
   echo "  SKIPPED: heartbeat-config (no HEALTHCHECKS_*_URL set)"
 fi
 
-# Cribl MCP server config (CRIBL_BASE_URL from cloud-secrets, MCP_API_KEY from iac-conf-mgmt DEFAULT_PASSWORD)
+# Cribl MCP server config (CRIBL_BASE_URL from the Cribl/cloud Doppler project, MCP_API_KEY from the infrastructure Doppler project's DEFAULT_PASSWORD)
 MCP_BASE_URL="${CRIBL_BASE_URL:-}"
 if [ -n "$MCP_BASE_URL" ]; then
   MCP_ARGS=(--from-literal=base-url="$MCP_BASE_URL")
@@ -128,11 +128,11 @@ if [ -n "$MCP_BASE_URL" ]; then
   echo "  Created: cribl-mcp-config"
 else
   echo "  SKIPPED: cribl-mcp-config (CRIBL_BASE_URL not set)"
-  echo "           Set CRIBL_BASE_URL in Doppler cloud-secrets/prd, or use: make deploy-doppler"
+  echo "           Set CRIBL_BASE_URL in the Cribl/cloud Doppler project, or use: make deploy-doppler"
 fi
 
 # Ensure Splunk license is current (prevents search failures from expired licenses).
-# SPLUNK_LICENSE contains the full license XML from Doppler iac-conf-mgmt/prd.
+# SPLUNK_LICENSE contains the full license XML from the infrastructure Doppler project.
 if [ -n "${SPLUNK_LICENSE:-}" ] && [ -n "${SPLUNK_IP:-}" ] && [ -n "${SPLUNK_PASSWORD:-}" ]; then
   if curl -sk "https://${SPLUNK_IP}:8089/services/licenser/licenses" \
     -u "admin:${SPLUNK_PASSWORD}" \
