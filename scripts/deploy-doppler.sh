@@ -23,6 +23,8 @@ fi
 
 # Fetch MCP secrets from the Cribl/cloud Doppler project (CRIBL_BASE_URL, CRIBL_CLIENT_ID, CRIBL_CLIENT_SECRET).
 # These supplement the main infrastructure Doppler secrets (which provide DEFAULT_PASSWORD → MCP_API_KEY).
-eval "$(doppler "${DOPPLER_OPTS[@]}" secrets download --project "${CRIBL_MCP_DOPPLER_PROJECT:?CRIBL_MCP_DOPPLER_PROJECT must be set}" --config "${CRIBL_MCP_DOPPLER_CONFIG:?CRIBL_MCP_DOPPLER_CONFIG must be set}" --format env --no-file 2>/dev/null)" || true
+: "${CRIBL_MCP_DOPPLER_PROJECT:?CRIBL_MCP_DOPPLER_PROJECT must be set}"
+: "${CRIBL_MCP_DOPPLER_CONFIG:?CRIBL_MCP_DOPPLER_CONFIG must be set}"
+eval "$(doppler "${DOPPLER_OPTS[@]}" secrets download --project "$CRIBL_MCP_DOPPLER_PROJECT" --config "$CRIBL_MCP_DOPPLER_CONFIG" --format env --no-file 2>/dev/null)" || true
 
 doppler "${DOPPLER_OPTS[@]}" run --project "$DOPPLER_PROJECT" --config "$DOPPLER_CONFIG" -- "$SCRIPT_DIR/deploy.sh"
