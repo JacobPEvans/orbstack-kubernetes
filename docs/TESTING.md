@@ -64,7 +64,7 @@ The runner requires the macOS host to be powered on and OrbStack to be running. 
 
 - Test venv installed: `make test-setup`
 - For Tiers 1–4 (local only): OrbStack running with monitoring namespace deployed: `make deploy-doppler`
-- Splunk HEC token configured: `SPLUNK_HEC_TOKEN` must be set in Doppler `iac-conf-mgmt/prd`
+- Splunk HEC token configured: `SPLUNK_HEC_TOKEN` must be set in the infrastructure Doppler project
 - Splunk management credentials in secret: `splunk-hec-config` must have `mgmt-url` and `admin-password` keys (populated automatically by `make deploy-doppler` when `SPLUNK_PASSWORD` is set)
 
 ## Test Files
@@ -153,7 +153,7 @@ The `splunk-hec-config` secret is missing `mgmt-url` or `admin-password` keys. R
 make deploy-doppler
 ```
 
-Requires `SPLUNK_PASSWORD` and `SPLUNK_NETWORK` set in Doppler `iac-conf-mgmt/prd`.
+Requires `SPLUNK_PASSWORD` and `SPLUNK_NETWORK` set in the infrastructure Doppler project.
 
 ### `test_file_events_reach_splunk_realtime` fails (sentinel not in Splunk)
 
