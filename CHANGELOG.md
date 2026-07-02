@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.0.6](https://github.com/dryvist/orbstack-kubernetes/compare/v2.0.5...v2.0.6) (2026-07-02)
+
+
+### Bug Fixes
+
+* point callers at renamed cc- reusable workflows ([789dbae](https://github.com/dryvist/orbstack-kubernetes/commit/789dbae9f8c73ab5142eb40cc7f858f7de226313))
+
 ## [2.0.5](https://github.com/dryvist/orbstack-kubernetes/compare/v2.0.4...v2.0.5) (2026-06-22)
 
 
