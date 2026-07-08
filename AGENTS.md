@@ -2,6 +2,15 @@
 
 Kubernetes manifests for local OrbStack cluster.
 
+> **⚠️ DECOMMISSIONED (2026-07-08).** The Kubernetes stack is retired and this
+> repo is archived. Monitoring runs in the homelab. The Mac keeps only Cribl
+> Edge, installed directly and run as a non-root user via
+> [nix-darwin](https://github.com/JacobPEvans/nix-darwin)
+> (`modules/darwin/apps/cribl-edge.nix`). The "laptop runs NO Cribl Stream"
+> invariant below is **superseded**: a local Cribl Stream now runs under Apple's
+> native container runtime, also managed by nix-darwin. OrbStack keeps Docker
+> but its Kubernetes is disabled. Everything past this banner is historical.
+
 ## Architecture Invariant
 
 **Edge → homelab Stream → Splunk is the ONLY allowed data path.**

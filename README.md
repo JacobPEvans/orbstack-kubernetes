@@ -2,6 +2,15 @@
 
 [![validate](https://github.com/JacobPEvans/orbstack-kubernetes/actions/workflows/validate.yml/badge.svg)](https://github.com/JacobPEvans/orbstack-kubernetes/actions/workflows/validate.yml) [![e2e-tests](https://github.com/JacobPEvans/orbstack-kubernetes/actions/workflows/e2e-tests.yml/badge.svg)](https://github.com/JacobPEvans/orbstack-kubernetes/actions/workflows/e2e-tests.yml) [![License: Apache-2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 
+> **⚠️ DECOMMISSIONED (2026-07-08).** This local Kubernetes monitoring stack is
+> retired. The monitoring pipeline now runs in the homelab. The only monitoring
+> component that stays on the Mac is Cribl Edge, installed directly and run as a
+> non-root user, managed by
+> [nix-darwin](https://github.com/JacobPEvans/nix-darwin)
+> (`modules/darwin/apps/cribl-edge.nix`). OrbStack keeps Docker, but its
+> Kubernetes is disabled (`orb config set k8s.enable false`). This repo is
+> archived for reference — the manifests below no longer run.
+
 Kubernetes monitoring stack for local OrbStack cluster. Collects, processes, and routes logs from Claude Code, Ollama, terminal sessions, and ephemeral AI containers.
 
 ## Components
